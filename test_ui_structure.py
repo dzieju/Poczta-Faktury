@@ -135,21 +135,26 @@ def test_create_widgets_update():
     
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef) and node.name == 'create_widgets':
-            source_segment = ast.get_source_segment(source, node)
-            if source_segment:
-                # The old structure had 4 tabs, new should have 3
-                # Count the number of notebook.add calls in create_widgets
-                num_adds = source_segment.count('self.notebook.add')
-                # Should be 3: Konfiguracja poczty, Wyszukiwanie NIP, O programie
-                correct_tab_count = num_adds == 3
-                
-                # Verify no direct "Znalezione" tab at top level
-                no_top_level_znalezione = 'text="Znalezione"' not in source_segment
-                
-                print(f"  ✓ Correct number of top-level tabs (3): {correct_tab_count} (found {num_adds})")
-                print(f"  ✓ No top-level 'Znalezione' tab: {no_top_level_znalezione}")
-                
-                return correct_tab_count and no_top_level_znalezione
+            # Count notebook.add calls using AST traversal
+            num_adds = 0
+            for child in ast.walk(node):
+                if isinstance(child, ast.Call):
+                    if isinstance(child.func, ast.Attribute):
+                        if child.func.attr == 'add' and isinstance(child.func.value, ast.Attribute):
+                            if child.func.value.attr == 'notebook':
+                                num_adds += 1
+            
+            # Should be 3: Konfiguracja poczty, Wyszukiwanie NIP, O programie
+            correct_tab_count = num_adds == 3
+            
+            # Verify no direct "Znalezione" tab at top level by checking the source
+            source_segment = ast.get_source_segment(source, node) or ""
+            no_top_level_znalezione = 'text="Znalezione"' not in source_segment
+            
+            print(f"  ✓ Correct number of top-level tabs (3): {correct_tab_count} (found {num_adds})")
+            print(f"  ✓ No top-level 'Znalezione' tab: {no_top_level_znalezione}")
+            
+            return correct_tab_count and no_top_level_znalezione
     
     return False
 
