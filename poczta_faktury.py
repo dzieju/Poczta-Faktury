@@ -521,6 +521,9 @@ class EmailInvoiceFinderApp:
     
     def make_safe_filename(self, filename):
         """Tworzenie bezpiecznej nazwy pliku"""
+        # Weź tylko nazwę pliku (bez ścieżki)
+        filename = os.path.basename(filename)
+        
         # Usuń niebezpieczne znaki
         safe_chars = '-_.() abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ąćęłńóśźżĄĆĘŁŃÓŚŹŻ'
         safe_filename = ''.join(c for c in filename if c in safe_chars)
