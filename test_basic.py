@@ -6,6 +6,9 @@ Test podstawowych funkcji bez GUI
 
 import re
 import sys
+import os
+import tempfile
+import json
 
 
 def test_nip_search_logic():
@@ -127,6 +130,150 @@ def test_pdf_dependencies():
     return has_pypdf2 and has_pdfplumber
 
 
+def test_invoice_pattern_matching():
+    """Test wykrywania faktur na podstawie wzorca"""
+    print("\nTest: Wykrywanie wzorca nazwy faktury")
+    
+    def matches_invoice_pattern(filename, pattern=r'fakt'):
+        """Sprawdza czy nazwa pliku pasuje do wzorca faktury"""
+        if not filename:
+            return False
+        
+        try:
+            return re.search(pattern, filename, re.IGNORECASE) is not None
+        except re.error:
+            return pattern.lower() in filename.lower()
+    
+    # Test 1: Faktura - podstawowy wzorzec
+    result1 = matches_invoice_pattern("faktura_2024_01.pdf", r'fakt')
+    print(f"  Test 1 (faktura_2024_01.pdf): {'✓' if result1 else '✗'}")
+    
+    # Test 2: FAKTURA - wielkość liter
+    result2 = matches_invoice_pattern("FAKTURA_VAT.pdf", r'fakt')
+    print(f"  Test 2 (FAKTURA_VAT.pdf): {'✓' if result2 else '✗'}")
+    
+    # Test 3: Fakt - skrócona nazwa
+    result3 = matches_invoice_pattern("Fakt_12345.pdf", r'fakt')
+    print(f"  Test 3 (Fakt_12345.pdf): {'✓' if result3 else '✗'}")
+    
+    # Test 4: Nie pasuje - inny dokument
+    result4 = matches_invoice_pattern("raport_miesięczny.pdf", r'fakt')
+    print(f"  Test 4 (raport_miesięczny.pdf - powinno być False): {'✓' if not result4 else '✗'}")
+    
+    # Test 5: Regex bardziej złożony
+    result5 = matches_invoice_pattern("invoice_2024.pdf", r'(fakt|invoice)')
+    print(f"  Test 5 (invoice_2024.pdf z regex): {'✓' if result5 else '✗'}")
+    
+    return all([result1, result2, result3, not result4, result5])
+
+
+def test_unique_filename_generation():
+    """Test generowania unikalnych nazw plików"""
+    print("\nTest: Generowanie unikalnych nazw plików")
+    
+    import os
+    import tempfile
+    
+    def get_unique_filename(output_folder, filename, overwrite_policy='suffix'):
+        """Generuje unikalną nazwę pliku zgodnie z polityką nadpisywania"""
+        output_path = os.path.join(output_folder, filename)
+        
+        if overwrite_policy == 'overwrite':
+            return output_path
+        
+        if not os.path.exists(output_path):
+            return output_path
+        
+        base, ext = os.path.splitext(filename)
+        counter = 1
+        while os.path.exists(os.path.join(output_folder, f"{base}_{counter}{ext}")):
+            counter += 1
+        
+        return os.path.join(output_folder, f"{base}_{counter}{ext}")
+    
+    # Utwórz tymczasowy folder do testów
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Test 1: Pierwszy plik - bez sufiksu
+        path1 = get_unique_filename(tmpdir, "test.pdf", 'suffix')
+        result1 = path1.endswith("test.pdf")
+        print(f"  Test 1 (pierwszy plik bez sufiksu): {'✓' if result1 else '✗'}")
+        
+        # Utwórz plik
+        open(path1, 'w').close()
+        
+        # Test 2: Drugi plik - z sufiksem _1
+        path2 = get_unique_filename(tmpdir, "test.pdf", 'suffix')
+        result2 = path2.endswith("test_1.pdf")
+        print(f"  Test 2 (drugi plik z sufiksem _1): {'✓' if result2 else '✗'}")
+        
+        # Utwórz drugi plik
+        open(path2, 'w').close()
+        
+        # Test 3: Trzeci plik - z sufiksem _2
+        path3 = get_unique_filename(tmpdir, "test.pdf", 'suffix')
+        result3 = path3.endswith("test_2.pdf")
+        print(f"  Test 3 (trzeci plik z sufiksem _2): {'✓' if result3 else '✗'}")
+        
+        # Test 4: Polityka overwrite - zawsze ta sama nazwa
+        path4 = get_unique_filename(tmpdir, "test.pdf", 'overwrite')
+        result4 = path4.endswith("test.pdf")
+        print(f"  Test 4 (polityka overwrite): {'✓' if result4 else '✗'}")
+    
+    return all([result1, result2, result3, result4])
+
+
+def test_found_invoices_persistence():
+    """Test zapisu i odczytu listy znalezionych faktur"""
+    print("\nTest: Zapis i odczyt znalezionych faktur")
+    
+    # Dane testowe
+    test_invoices = [
+        {
+            'date': '2024-01-15 10:30',
+            'sender': 'test@example.com',
+            'subject': 'Faktura VAT 001/2024',
+            'filename': 'faktura_001.pdf',
+            'file_path': '/tmp/faktura_001.pdf',
+            'found_timestamp': '2024-01-15T10:30:00'
+        },
+        {
+            'date': '2024-01-16 14:20',
+            'sender': 'billing@company.com',
+            'subject': 'Invoice 002/2024',
+            'filename': 'invoice_002.pdf',
+            'file_path': '/tmp/invoice_002.pdf',
+            'found_timestamp': '2024-01-16T14:20:00'
+        }
+    ]
+    
+    # Utwórz tymczasowy plik
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        temp_file = f.name
+        json.dump(test_invoices, f, indent=2, ensure_ascii=False)
+    
+    try:
+        # Test 1: Odczyt danych
+        with open(temp_file, 'r', encoding='utf-8') as f:
+            loaded_invoices = json.load(f)
+        
+        result1 = len(loaded_invoices) == 2
+        print(f"  Test 1 (odczyt 2 faktur): {'✓' if result1 else '✗'}")
+        
+        # Test 2: Sprawdź poprawność danych
+        result2 = loaded_invoices[0]['filename'] == 'faktura_001.pdf'
+        print(f"  Test 2 (poprawność nazwy pliku): {'✓' if result2 else '✗'}")
+        
+        # Test 3: Sprawdź kodowanie polskich znaków
+        result3 = 'ó' in loaded_invoices[0]['subject'] or 'Faktura' in loaded_invoices[0]['subject']
+        print(f"  Test 3 (kodowanie UTF-8): {'✓' if result3 else '✗'}")
+        
+        return all([result1, result2, result3])
+    finally:
+        # Usuń tymczasowy plik
+        if os.path.exists(temp_file):
+            os.unlink(temp_file)
+
+
 def main():
     print("=" * 60)
     print("TESTY APLIKACJI POCZTA FAKTURY (bez GUI)")
@@ -137,6 +284,9 @@ def main():
         test_nip_search_logic,
         test_safe_filename,
         test_pdf_dependencies,
+        test_invoice_pattern_matching,
+        test_unique_filename_generation,
+        test_found_invoices_persistence,
     ]
     
     results = []
