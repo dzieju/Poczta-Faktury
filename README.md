@@ -49,8 +49,12 @@ python main.py
    - Opcjonalnie wybierz zakres przeszukiwania (1 miesiąc, 3 miesiące, 6 miesięcy)
    - Opcjonalnie zaznacz "Zapisz ustawienia" aby zapisać preferencje
    - Kliknij "Szukaj faktur"
+   - Podczas wyszukiwania możesz kliknąć "Przerwij" aby zatrzymać operację
 
 4. Aplikacja przeszuka wszystkie załączniki PDF w skrzynce email i zapisze te, które zawierają podany numer NIP.
+   - Wyszukiwanie działa w tle - GUI pozostaje responsywne
+   - Logi i postęp są wyświetlane w czasie rzeczywistym
+   - Zapisane pliki mają datę modyfikacji ustawioną zgodnie z datą otrzymania emaila
 
 **Uwaga**: Ustawienia aplikacji są zapisywane w pliku `~/.poczta_faktury_config.json` (jeśli zaznaczono opcję "Zapisz ustawienia"). Hasło do poczty jest zapisywane tylko gdy zaznaczysz checkbox "Zapisz ustawienia" w zakładce "Konfiguracja poczty".
 
@@ -81,14 +85,19 @@ python main.py
 - ✅ Wyszukiwanie numerów NIP w załącznikach PDF
 - ✅ Automatyczny zapis znalezionych faktur
 - ✅ Interfejs graficzny w języku polskim
-- ✅ Pasek postępu i informacje o przebiegu wyszukiwania
+- ✅ Nieblokujące wyszukiwanie - GUI pozostaje responsywne podczas operacji
+- ✅ Przycisk "Przerwij" do zatrzymania wyszukiwania w dowolnym momencie
+- ✅ Pasek postępu i informacje o przebiegu wyszukiwania w czasie rzeczywistym
 - ✅ Obsługa różnych formatów zapisu NIP (z kreskami i bez)
 - ✅ Możliwość zapisania ustawień do pliku konfiguracyjnego
 - ✅ Filtrowanie wiadomości według zakresu czasowego (1/3/6 miesięcy)
 - ✅ Przełączanie widoczności hasła
+- ✅ Ustawianie daty modyfikacji plików zgodnie z datą otrzymania emaila
 
 ## Uwagi
 
 - Aplikacja wymaga dostępu do internetu
 - Wyszukiwanie dużej liczby wiadomości może zająć kilka minut
+- Możesz użyć przycisku "Przerwij" aby zatrzymać wyszukiwanie w dowolnym momencie
 - Niektóre serwery email mogą wymagać specjalnych uprawnień lub haseł aplikacji
+- Daty modyfikacji zapisanych plików odpowiadają dacie otrzymania emaila (sprawdź z `ls -l --time-style=long-iso`)
