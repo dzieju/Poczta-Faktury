@@ -16,6 +16,12 @@ import tempfile
 from pathlib import Path
 import PyPDF2
 import pdfplumber
+import json
+from datetime import datetime, timedelta
+from email.utils import parsedate_to_datetime
+
+# Plik konfiguracyjny
+CONFIG_FILE = Path.home() / '.poczta_faktury_config.json'
 
 
 class EmailInvoiceFinderApp:
@@ -33,14 +39,22 @@ class EmailInvoiceFinderApp:
             'port': '',
             'email': '',
             'password': '',
-            'use_ssl': True
+            'use_ssl': True,
+            'save_email_settings': False
         }
         
         # Ustawienia wyszukiwania
         self.search_config = {
             'nip': '',
-            'output_folder': ''
+            'output_folder': '',
+            'save_search_settings': False,
+            'range_1m': False,
+            'range_3m': False,
+            'range_6m': False
         }
+        
+        # Wczytaj konfigurację z pliku
+        self.load_config()
         
         self.create_widgets()
     
@@ -59,6 +73,9 @@ class EmailInvoiceFinderApp:
         self.search_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.search_frame, text="Wyszukiwanie NIP")
         self.create_search_tab()
+        
+        # Zastosuj wczytaną konfigurację do UI
+        self._apply_loaded_config_to_ui()
     
     def create_email_config_tab(self):
         """Tworzenie zakładki konfiguracji email"""
@@ -95,18 +112,29 @@ class EmailInvoiceFinderApp:
         self.password_entry = ttk.Entry(self.config_frame, width=40, show='*')
         self.password_entry.grid(row=4, column=1, sticky='ew', padx=10, pady=5)
         
+        # Pokaż hasło
+        self.show_password_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(self.config_frame, text="Pokaż hasło", 
+                       variable=self.show_password_var,
+                       command=self.toggle_show_password).grid(row=5, column=0, columnspan=2, padx=10, pady=5)
+        
         # SSL
         self.ssl_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(self.config_frame, text="Użyj SSL/TLS", 
-                       variable=self.ssl_var).grid(row=5, column=0, columnspan=2, padx=10, pady=5)
+                       variable=self.ssl_var).grid(row=6, column=0, columnspan=2, padx=10, pady=5)
+        
+        # Zapisz ustawienia
+        self.save_email_config_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(self.config_frame, text="Zapisz ustawienia", 
+                       variable=self.save_email_config_var).grid(row=7, column=0, columnspan=2, padx=10, pady=5)
         
         # Przycisk testowania połączenia
         ttk.Button(self.config_frame, text="Testuj połączenie", 
-                  command=self.test_connection).grid(row=6, column=0, columnspan=2, pady=20)
+                  command=self.test_connection).grid(row=8, column=0, columnspan=2, pady=20)
         
         # Status
         self.status_label = ttk.Label(self.config_frame, text="", foreground="blue")
-        self.status_label.grid(row=7, column=0, columnspan=2, padx=10, pady=5)
+        self.status_label.grid(row=9, column=0, columnspan=2, padx=10, pady=5)
         
         self.config_frame.columnconfigure(1, weight=1)
     
@@ -129,22 +157,138 @@ class EmailInvoiceFinderApp:
         ttk.Button(folder_frame, text="Przeglądaj...", 
                   command=self.browse_folder).pack(side='left', padx=5)
         
+        # Zakres czasowy
+        range_frame = ttk.LabelFrame(self.search_frame, text="Zakres przeszukiwania", padding=10)
+        range_frame.grid(row=2, column=0, columnspan=2, sticky='ew', padx=10, pady=5)
+        
+        self.range_1m_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(range_frame, text="1 miesiąc", 
+                       variable=self.range_1m_var).pack(side='left', padx=5)
+        
+        self.range_3m_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(range_frame, text="3 miesiące", 
+                       variable=self.range_3m_var).pack(side='left', padx=5)
+        
+        self.range_6m_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(range_frame, text="6 miesięcy", 
+                       variable=self.range_6m_var).pack(side='left', padx=5)
+        
+        # Zapisz ustawienia
+        self.save_search_config_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(self.search_frame, text="Zapisz ustawienia", 
+                       variable=self.save_search_config_var).grid(row=3, column=0, columnspan=2, padx=10, pady=5)
+        
         # Przycisk wyszukiwania
         ttk.Button(self.search_frame, text="Szukaj faktur", 
-                  command=self.search_invoices).grid(row=2, column=0, columnspan=2, pady=20)
+                  command=self.search_invoices).grid(row=4, column=0, columnspan=2, pady=20)
         
         # Pasek postępu
         self.progress = ttk.Progressbar(self.search_frame, mode='indeterminate')
-        self.progress.grid(row=3, column=0, columnspan=2, sticky='ew', padx=10, pady=5)
+        self.progress.grid(row=5, column=0, columnspan=2, sticky='ew', padx=10, pady=5)
         
         # Wyniki
-        ttk.Label(self.search_frame, text="Wyniki:").grid(row=4, column=0, columnspan=2, sticky='w', padx=10, pady=5)
+        ttk.Label(self.search_frame, text="Wyniki:").grid(row=6, column=0, columnspan=2, sticky='w', padx=10, pady=5)
         
         self.results_text = scrolledtext.ScrolledText(self.search_frame, height=20, width=70)
-        self.results_text.grid(row=5, column=0, columnspan=2, sticky='nsew', padx=10, pady=5)
+        self.results_text.grid(row=7, column=0, columnspan=2, sticky='nsew', padx=10, pady=5)
         
         self.search_frame.columnconfigure(1, weight=1)
-        self.search_frame.rowconfigure(5, weight=1)
+        self.search_frame.rowconfigure(7, weight=1)
+    
+    def toggle_show_password(self):
+        """Przełączanie widoczności hasła"""
+        if self.show_password_var.get():
+            self.password_entry.config(show='')
+        else:
+            self.password_entry.config(show='*')
+    
+    def save_config(self):
+        """Zapisywanie konfiguracji do pliku JSON"""
+        config = {
+            'email_config': {
+                'protocol': self.protocol_var.get(),
+                'server': self.server_entry.get(),
+                'port': self.port_entry.get(),
+                'email': self.email_entry.get(),
+                'password': self.password_entry.get() if self.save_email_config_var.get() else '',
+                'use_ssl': self.ssl_var.get(),
+                'save_email_settings': self.save_email_config_var.get()
+            },
+            'search_config': {
+                'nip': self.nip_entry.get() if self.save_search_config_var.get() else '',
+                'output_folder': self.folder_entry.get() if self.save_search_config_var.get() else '',
+                'save_search_settings': self.save_search_config_var.get(),
+                'range_1m': self.range_1m_var.get() if self.save_search_config_var.get() else False,
+                'range_3m': self.range_3m_var.get() if self.save_search_config_var.get() else False,
+                'range_6m': self.range_6m_var.get() if self.save_search_config_var.get() else False
+            }
+        }
+        
+        try:
+            with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"Błąd zapisu konfiguracji: {e}")
+            messagebox.showwarning("Ostrzeżenie", f"Nie udało się zapisać konfiguracji:\n{str(e)}")
+    
+    def load_config(self):
+        """Wczytywanie konfiguracji z pliku JSON"""
+        if not CONFIG_FILE.exists():
+            return
+        
+        try:
+            with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            
+            # Wczytaj konfigurację email
+            email_cfg = config.get('email_config', {})
+            self.email_config.update(email_cfg)
+            
+            # Wczytaj konfigurację wyszukiwania
+            search_cfg = config.get('search_config', {})
+            self.search_config.update(search_cfg)
+            
+        except Exception as e:
+            print(f"Błąd wczytywania konfiguracji: {e}")
+            # Nie pokazujemy błędu przy starcie, żeby nie przeszkadzać użytkownikowi
+    
+    def _apply_loaded_config_to_ui(self):
+        """Zastosowanie wczytanej konfiguracji do UI (wywoływane po utworzeniu widgetów)"""
+        # Konfiguracja email
+        if self.email_config.get('protocol'):
+            self.protocol_var.set(self.email_config['protocol'])
+        if self.email_config.get('server'):
+            self.server_entry.delete(0, tk.END)
+            self.server_entry.insert(0, self.email_config['server'])
+        if self.email_config.get('port'):
+            self.port_entry.delete(0, tk.END)
+            self.port_entry.insert(0, self.email_config['port'])
+        if self.email_config.get('email'):
+            self.email_entry.delete(0, tk.END)
+            self.email_entry.insert(0, self.email_config['email'])
+        if self.email_config.get('password'):
+            self.password_entry.delete(0, tk.END)
+            self.password_entry.insert(0, self.email_config['password'])
+        if 'use_ssl' in self.email_config:
+            self.ssl_var.set(self.email_config['use_ssl'])
+        if 'save_email_settings' in self.email_config:
+            self.save_email_config_var.set(self.email_config['save_email_settings'])
+        
+        # Konfiguracja wyszukiwania
+        if self.search_config.get('nip'):
+            self.nip_entry.delete(0, tk.END)
+            self.nip_entry.insert(0, self.search_config['nip'])
+        if self.search_config.get('output_folder'):
+            self.folder_entry.delete(0, tk.END)
+            self.folder_entry.insert(0, self.search_config['output_folder'])
+        if 'save_search_settings' in self.search_config:
+            self.save_search_config_var.set(self.search_config['save_search_settings'])
+        if 'range_1m' in self.search_config:
+            self.range_1m_var.set(self.search_config['range_1m'])
+        if 'range_3m' in self.search_config:
+            self.range_3m_var.set(self.search_config['range_3m'])
+        if 'range_6m' in self.search_config:
+            self.range_6m_var.set(self.search_config['range_6m'])
     
     def test_connection(self):
         """Testowanie połączenia z serwerem email"""
@@ -195,8 +339,13 @@ class EmailInvoiceFinderApp:
                 'port': port,
                 'email': email_addr,
                 'password': password,
-                'use_ssl': use_ssl
+                'use_ssl': use_ssl,
+                'save_email_settings': self.save_email_config_var.get()
             }
+            
+            # Zapisz do pliku jeśli zaznaczono checkbox
+            if self.save_email_config_var.get():
+                self.save_config()
             
         except Exception as e:
             self.status_label.config(text="Błąd połączenia", foreground="red")
@@ -208,6 +357,42 @@ class EmailInvoiceFinderApp:
         if folder:
             self.folder_entry.delete(0, tk.END)
             self.folder_entry.insert(0, folder)
+    
+    def _get_cutoff_datetime(self):
+        """Obliczanie daty granicznej na podstawie zaznaczonych zakresów
+        
+        Uwaga: Jeśli zaznaczono wiele zakresów, używany jest najdłuższy (6m > 3m > 1m).
+        """
+        # Znajdź najdalszy zaznaczony zakres
+        max_days = 0
+        if self.range_6m_var.get():
+            max_days = 180  # 6 miesięcy ≈ 180 dni
+        elif self.range_3m_var.get():
+            max_days = 90   # 3 miesiące ≈ 90 dni
+        elif self.range_1m_var.get():
+            max_days = 30   # 1 miesiąc ≈ 30 dni
+        
+        if max_days > 0:
+            cutoff_dt = datetime.now() - timedelta(days=max_days)
+            return cutoff_dt
+        return None
+    
+    def _email_date_is_within_cutoff(self, date_header, cutoff_dt):
+        """Sprawdza czy data wiadomości mieści się w zakresie"""
+        if cutoff_dt is None:
+            return True  # Brak filtrowania
+        
+        if not date_header:
+            return True  # Brak daty - nie odrzucamy
+        
+        try:
+            email_dt = parsedate_to_datetime(date_header)
+            # Jeśli email_dt ma timezone, usuń go dla porównania
+            if email_dt.tzinfo is not None:
+                email_dt = email_dt.replace(tzinfo=None)
+            return email_dt >= cutoff_dt
+        except (TypeError, ValueError):
+            return True  # W razie błędu parsowania, nie odrzucamy
     
     def extract_text_from_pdf(self, pdf_path):
         """Ekstrakcja tekstu z pliku PDF"""
@@ -284,8 +469,28 @@ class EmailInvoiceFinderApp:
             self.notebook.select(0)  # Przełącz na zakładkę konfiguracji
             return
         
+        # Zaktualizuj search_config
+        self.search_config = {
+            'nip': nip,
+            'output_folder': output_folder,
+            'save_search_settings': self.save_search_config_var.get(),
+            'range_1m': self.range_1m_var.get(),
+            'range_3m': self.range_3m_var.get(),
+            'range_6m': self.range_6m_var.get()
+        }
+        
+        # Zapisz konfigurację jeśli zaznaczono checkbox
+        if self.save_search_config_var.get():
+            self.save_config()
+        
         self.results_text.delete(1.0, tk.END)
         self.results_text.insert(tk.END, "Rozpoczynam wyszukiwanie...\n")
+        
+        # Informacja o zakresie czasowym
+        cutoff_dt = self._get_cutoff_datetime()
+        if cutoff_dt:
+            self.results_text.insert(tk.END, f"Filtrowanie wiadomości starszych niż: {cutoff_dt.strftime('%Y-%m-%d')}\n")
+        
         self.progress.start()
         self.root.update()
         
@@ -318,6 +523,7 @@ class EmailInvoiceFinderApp:
     def search_with_imap(self, nip, output_folder):
         """Wyszukiwanie przez IMAP"""
         found_count = 0
+        cutoff_dt = self._get_cutoff_datetime()
         
         # Połącz z serwerem
         if self.email_config['use_ssl']:
@@ -359,6 +565,11 @@ class EmailInvoiceFinderApp:
                 
                 email_body = msg_data[0][1]
                 email_message = email.message_from_bytes(email_body)
+                
+                # Sprawdź datę wiadomości
+                date_header = email_message.get('Date')
+                if not self._email_date_is_within_cutoff(date_header, cutoff_dt):
+                    continue  # Pomiń wiadomości starsze niż cutoff
                 
                 # Pobierz temat
                 subject = self.decode_email_subject(email_message.get('Subject', ''))
@@ -418,6 +629,7 @@ class EmailInvoiceFinderApp:
     def search_with_pop3(self, nip, output_folder):
         """Wyszukiwanie przez POP3"""
         found_count = 0
+        cutoff_dt = self._get_cutoff_datetime()
         
         # Połącz z serwerem
         if self.email_config['use_ssl']:
@@ -447,6 +659,11 @@ class EmailInvoiceFinderApp:
                 response, lines, octets = mail.retr(i)
                 email_body = b'\n'.join(lines)
                 email_message = email.message_from_bytes(email_body)
+                
+                # Sprawdź datę wiadomości
+                date_header = email_message.get('Date')
+                if not self._email_date_is_within_cutoff(date_header, cutoff_dt):
+                    continue  # Pomiń wiadomości starsze niż cutoff
                 
                 # Pobierz temat
                 subject = self.decode_email_subject(email_message.get('Subject', ''))

@@ -30,7 +30,7 @@ pip install -r requirements.txt
 
 1. Uruchom aplikację:
 ```bash
-python poczta_faktury.py
+python main.py
 ```
 
 2. W zakładce "Konfiguracja poczty":
@@ -39,14 +39,20 @@ python poczta_faktury.py
    - Podaj port (domyślnie 993 dla IMAP SSL)
    - Wprowadź adres email i hasło
    - Zaznacz "Użyj SSL/TLS" jeśli wymagane
+   - Opcjonalnie zaznacz "Pokaż hasło" aby zobaczyć wpisywane hasło
+   - Opcjonalnie zaznacz "Zapisz ustawienia" aby zapisać konfigurację do pliku ~/.poczta_faktury_config.json
    - Kliknij "Testuj połączenie" aby sprawdzić poprawność konfiguracji
 
 3. W zakładce "Wyszukiwanie NIP":
    - Wprowadź numer NIP do wyszukania
    - Wybierz folder, w którym mają być zapisane znalezione faktury
+   - Opcjonalnie wybierz zakres przeszukiwania (1 miesiąc, 3 miesiące, 6 miesięcy)
+   - Opcjonalnie zaznacz "Zapisz ustawienia" aby zapisać preferencje
    - Kliknij "Szukaj faktur"
 
 4. Aplikacja przeszuka wszystkie załączniki PDF w skrzynce email i zapisze te, które zawierają podany numer NIP.
+
+**Uwaga**: Ustawienia aplikacji są zapisywane w pliku `~/.poczta_faktury_config.json` (jeśli zaznaczono opcję "Zapisz ustawienia"). Hasło do poczty jest zapisywane tylko gdy zaznaczysz checkbox "Zapisz ustawienia" w zakładce "Konfiguracja poczty".
 
 ## Przykładowe konfiguracje serwerów
 
@@ -77,6 +83,9 @@ python poczta_faktury.py
 - ✅ Interfejs graficzny w języku polskim
 - ✅ Pasek postępu i informacje o przebiegu wyszukiwania
 - ✅ Obsługa różnych formatów zapisu NIP (z kreskami i bez)
+- ✅ Możliwość zapisania ustawień do pliku konfiguracyjnego
+- ✅ Filtrowanie wiadomości według zakresu czasowego (1/3/6 miesięcy)
+- ✅ Przełączanie widoczności hasła
 
 ## Uwagi
 
