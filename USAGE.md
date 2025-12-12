@@ -49,6 +49,12 @@ python main.py
 4. Opcjonalnie wybierz zakres przeszukiwania (1/3/6 miesięcy) aby przeszukiwać tylko nowsze wiadomości
 5. Opcjonalnie zaznacz "Zapisz ustawienia" aby pamiętać preferencje
 6. Kliknij "Szukaj faktur"
+7. Obserwuj postęp wyszukiwania w zakładce "Wyniki" wewnątrz "Wyszukiwanie NIP"
+8. Znalezione pliki pojawiają się na żywo w zakładce "Znalezione" wewnątrz "Wyszukiwanie NIP"
+
+**Uwaga o nowej strukturze**: Zakładka "Wyszukiwanie NIP" zawiera teraz dwie wewnętrzne zakładki:
+- **Wyniki**: Pokazuje logi i postęp wyszukiwania
+- **Znalezione**: Pokazuje listę znalezionych plików w czasie rzeczywistym podczas wyszukiwania
 
 **Uwaga o zakresie przeszukiwania**: Jeśli zaznaczysz jedną lub więcej opcji zakresu czasowego (1 miesiąc, 3 miesiące, 6 miesięcy), aplikacja będzie filtrować i pomijać wiadomości starsze niż wybrany zakres. To przyspiesza wyszukiwanie w dużych skrzynkach pocztowych.
 
@@ -67,13 +73,15 @@ Aplikacja:
 - Przeszuka wszystkie wiadomości email w skrzynce
 - Pobierze załączniki PDF
 - Przeskanuje je w poszukiwaniu podanego numeru NIP
-- Zapisze znalezione faktury w wybranym folderze z prefiksem numeru porządkowego
+- Zapisze znalezione faktury w wybranym folderze
+- Wyświetla znalezione pliki **na żywo** w zakładce "Znalezione" w miarę ich wykrywania
+- Po zakończeniu, wszystkie znalezione faktury są również dostępne w oddzielnej zakładce historii
 
 Przykładowe nazwy zapisanych plików:
 ```
-1_faktura_VAT_2024_01.pdf
-2_faktura_proforma.pdf
-3_paragon_fiskalny.pdf
+faktura_VAT_2024_01.pdf
+faktura_proforma.pdf
+paragon_fiskalny_1.pdf  (jeśli plik już istniał)
 ```
 
 ## Rozwiązywanie problemów / Troubleshooting
