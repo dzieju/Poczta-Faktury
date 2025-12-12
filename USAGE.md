@@ -16,7 +16,7 @@ pip install -r requirements.txt
 ### 2. Uruchomienie / Running the Application
 
 ```bash
-python poczta_faktury.py
+python main.py
 ```
 
 ### 3. Konfiguracja poczty / Email Configuration
@@ -46,7 +46,13 @@ python poczta_faktury.py
 1. Przejdź do zakładki "Wyszukiwanie NIP"
 2. Wprowadź numer NIP (np. 1234567890 lub 123-456-78-90)
 3. Wybierz folder, w którym mają być zapisane znalezione faktury
-4. Kliknij "Szukaj faktur"
+4. Opcjonalnie wybierz zakres przeszukiwania (1/3/6 miesięcy) aby przeszukiwać tylko nowsze wiadomości
+5. Opcjonalnie zaznacz "Zapisz ustawienia" aby pamiętać preferencje
+6. Kliknij "Szukaj faktur"
+
+**Uwaga o zakresie przeszukiwania**: Jeśli zaznaczysz jedną lub więcej opcji zakresu czasowego (1 miesiąc, 3 miesiące, 6 miesięcy), aplikacja będzie filtrować i pomijać wiadomości starsze niż wybrany zakres. To przyspiesza wyszukiwanie w dużych skrzynkach pocztowych.
+
+**Uwaga o konfiguracji**: Ustawienia mogą być zapisane w pliku `~/.poczta_faktury_config.json` i wczytywane przy następnym uruchomieniu aplikacji. Aby to włączyć, zaznacz checkbox "Zapisz ustawienia" w odpowiedniej zakładce.
 
 ### 5. Format NIP / NIP Format
 
