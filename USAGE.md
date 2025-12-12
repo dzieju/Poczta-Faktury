@@ -91,7 +91,51 @@ Przykładowe nazwy zapisanych plików:
 ### Problem: "Nie znaleziono faktur"
 - Upewnij się, że numer NIP jest poprawny
 - Sprawdź czy w skrzynce są wiadomości z załącznikami PDF
+- Sprawdź czy pliki PDF zawierają frazę "fakt" w nazwie (domyślny wzorzec wykrywania)
 - Pamiętaj, że aplikacja przeszukuje tylko załączniki w formacie PDF
+
+## Nowe funkcje
+
+### Zakładka "Znalezione"
+
+Po wykonaniu wyszukiwania, wszystkie znalezione faktury są dostępne w zakładce "Znalezione":
+
+1. **Przeglądanie listy**: Tabela zawiera dane, nadawcę, temat i nazwę pliku
+2. **Sortowanie**: Kliknij na nagłówek kolumny aby posortować wyniki
+3. **Otwieranie plików**: Podwójnie kliknij na wiersz aby otworzyć plik PDF
+4. **Trwałość**: Lista jest zapisywana i dostępna po ponownym uruchomieniu aplikacji
+5. **Czyszczenie**: Użyj przycisku "Wyczyść wszystko" aby usunąć wszystkie wpisy
+
+### Rekursywne przeszukiwanie folderów
+
+Aplikacja automatycznie przeszukuje **wszystkie foldery** w Twoim koncie email (IMAP):
+- Nie musisz ręcznie przenosić wiadomości do INBOX
+- Przeszukiwane są również podfoldery i zagnieżdżone struktury
+- W logach zobaczysz nazwy przeszukiwanych folderów
+
+### Zaawansowana konfiguracja
+
+Możesz dostosować zachowanie aplikacji edytując plik `~/.poczta_faktury_config.json`:
+
+```json
+{
+  "search_config": {
+    "invoice_filename_pattern": "fakt",
+    "overwrite_policy": "suffix",
+    "search_all_folders": true
+  }
+}
+```
+
+**Parametry:**
+- `invoice_filename_pattern`: Wzorzec (regex) do wykrywania faktur w nazwie pliku
+  - Przykłady: `"fakt"`, `"(fakt|invoice)"`, `"(faktura|rachunek)"`
+- `overwrite_policy`: Polityka nadpisywania plików
+  - `"suffix"`: Dodaj sufiks `_1`, `_2` jeśli plik istnieje (domyślne)
+  - `"overwrite"`: Nadpisz istniejący plik
+- `search_all_folders`: Przeszukiwanie wszystkich folderów
+  - `true`: Szukaj we wszystkich folderach (domyślne)
+  - `false`: Szukaj tylko w INBOX
 
 ## Wskazówki / Tips
 
@@ -99,10 +143,14 @@ Przykładowe nazwy zapisanych plików:
 2. **Duża skrzynka**: Jeśli masz dużo wiadomości, wyszukiwanie może zająć kilka minut
 3. **Backup**: Zalecane jest regularne tworzenie kopii zapasowych znalezionych faktur
 4. **Organizacja**: Twórz osobne foldery dla różnych kontrahentów/NIPów
+5. **Zakładka Znalezione**: Użyj jej jako szybkiego dostępu do wszystkich znalezionych faktur
+6. **Wzorzec wykrywania**: Dostosuj `invoice_filename_pattern` jeśli Twoje faktury mają inne nazwy
+7. **Przerwanie**: Możesz w każdej chwili przerwać wyszukiwanie - znalezione do tej pory faktury zostaną zapisane
 
 ## Bezpieczeństwo / Security
 
-- Aplikacja nie zapisuje danych logowania
+- Aplikacja nie zapisuje danych logowania (chyba że zaznaczysz "Zapisz ustawienia")
 - Hasła są przekazywane bezpośrednio do serwera email
 - Używaj aplikacji tylko na zaufanych komputerach
 - Regularnie zmieniaj hasła do poczty email
+- Lista znalezionych faktur jest przechowywana lokalnie w `~/.poczta_faktury_found.json`

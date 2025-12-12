@@ -86,6 +86,10 @@ python main.py
 - ✅ Obsługa protokołów POP3, IMAP i Exchange (przez IMAP)
 - ✅ Wyszukiwanie numerów NIP w załącznikach PDF
 - ✅ Automatyczny zapis znalezionych faktur
+- ✅ **NOWOŚĆ: Rekursywne przeszukiwanie wszystkich folderów i podfolderów** konta pocztowego
+- ✅ **NOWOŚĆ: Zakładka "Znalezione"** wyświetlająca wszystkie znalezione faktury z możliwością otwierania plików
+- ✅ **NOWOŚĆ: Wykrywanie faktur na podstawie wzorca nazwy pliku** (domyślnie: "fakt")
+- ✅ **NOWOŚĆ: Konfiguracja polityki nadpisywania plików** (nadpisuj lub dodaj sufiks)
 - ✅ Interfejs graficzny w języku polskim
 - ✅ Nieblokujące wyszukiwanie - GUI pozostaje responsywne podczas operacji
 - ✅ Przycisk "Przerwij" do zatrzymania wyszukiwania w dowolnym momencie
@@ -97,6 +101,47 @@ python main.py
 - ✅ Ustawianie daty modyfikacji plików zgodnie z datą otrzymania emaila
 - ✅ Zakładka "O programie" z danymi kontaktowymi i wersją aplikacji
 - ✅ Automatyczne wersjonowanie aplikacji (patch version zwiększana przy każdym push do main)
+
+## Nowe funkcje - szczegóły
+
+### Rekursywne przeszukiwanie folderów
+
+Aplikacja automatycznie przeszukuje **wszystkie foldery i podfoldery** konta pocztowego (IMAP), nie tylko INBOX. Obejmuje to:
+- Foldery główne (INBOX, Sent, Drafts, itp.)
+- Podfoldery utworzone przez użytkownika
+- Zagnieżdżone struktury folderów
+
+### Zakładka "Znalezione"
+
+Nowa zakładka wyświetla tabelę wszystkich znalezionych faktur z następującymi kolumnami:
+- **Data** - data otrzymania emaila
+- **Nadawca** - adres email nadawcy
+- **Temat** - temat wiadomości
+- **Nazwa Pliku** - nazwa zapisanego pliku PDF
+
+Funkcje zakładki:
+- **Sortowanie** - kliknij na nagłówek kolumny aby posortować dane
+- **Otwieranie plików** - podwójne kliknięcie otwiera plik PDF w domyślnej aplikacji
+- **Obsługa błędów** - jeśli plik nie istnieje, aplikacja oferuje otwarcie folderu nadrzędnego
+- **Trwałość danych** - lista faktur jest zapisywana i wczytywana przy każdym uruchomieniu
+
+### Wykrywanie faktur
+
+Aplikacja wykrywa faktury na podstawie:
+1. **Rozszerzenia pliku** - musi być `.pdf`
+2. **Wzorca w nazwie** - domyślnie nazwa musi zawierać "fakt" (np. "faktura", "Faktura VAT", "fakt_123")
+3. **Zawartości NIP** - (jeśli włączone wyszukiwanie po NIP)
+
+Wzorzec można skonfigurować w pliku `~/.poczta_faktury_config.json`:
+```json
+{
+  "search_config": {
+    "invoice_filename_pattern": "fakt",  // lub regex: "(fakt|invoice|rachunek)"
+    "overwrite_policy": "suffix",        // lub "overwrite"
+    "search_all_folders": true
+  }
+}
+```
 
 ## Uwagi
 

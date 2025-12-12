@@ -21,12 +21,17 @@ from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
 import threading
 import queue
+import subprocess
+import platform
 
 # Plik konfiguracyjny
 CONFIG_FILE = Path.home() / '.poczta_faktury_config.json'
 
 # Plik z wersją aplikacji
 VERSION_FILE = Path(__file__).parent / 'version.txt'
+
+# Plik z danymi znalezionych faktur
+FOUND_INVOICES_FILE = Path.home() / '.poczta_faktury_found.json'
 
 
 class EmailInvoiceFinderApp:
@@ -62,8 +67,14 @@ class EmailInvoiceFinderApp:
             'range_1m': False,
             'range_3m': False,
             'range_6m': False,
-            'range_week': False
+            'range_week': False,
+            'invoice_filename_pattern': r'fakt',  # Domyślny wzorzec dla faktur
+            'overwrite_policy': 'suffix',  # 'overwrite' lub 'suffix'
+            'search_all_folders': True  # Przeszukuj wszystkie foldery rekursywnie
         }
+        
+        # Lista znalezionych faktur (przechowuje metadata)
+        self.found_invoices = []
         
         # Threading controls for non-blocking search
         self.search_thread = None
@@ -72,6 +83,9 @@ class EmailInvoiceFinderApp:
         
         # Wczytaj konfigurację z pliku
         self.load_config()
+        
+        # Wczytaj znalezione faktury
+        self.load_found_invoices()
         
         self.create_widgets()
         
@@ -94,7 +108,12 @@ class EmailInvoiceFinderApp:
         self.notebook.add(self.search_frame, text="Wyszukiwanie NIP")
         self.create_search_tab()
         
-        # Zakładka 3: O programie
+        # Zakładka 3: Znalezione faktury
+        self.found_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.found_frame, text="Znalezione")
+        self.create_found_tab()
+        
+        # Zakładka 4: O programie
         self.about_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.about_frame, text="O programie")
         self.create_about_tab()
@@ -232,6 +251,52 @@ class EmailInvoiceFinderApp:
         self.search_frame.columnconfigure(1, weight=1)
         self.search_frame.rowconfigure(7, weight=1)
     
+    def create_found_tab(self):
+        """Tworzenie zakładki Znalezione faktury"""
+        # Ramka dla przycisków
+        button_frame = ttk.Frame(self.found_frame)
+        button_frame.pack(fill='x', padx=10, pady=10)
+        
+        ttk.Button(button_frame, text="Odśwież", 
+                  command=self.refresh_found_invoices).pack(side='left', padx=5)
+        
+        ttk.Button(button_frame, text="Wyczyść wszystko", 
+                  command=self.clear_found_invoices).pack(side='left', padx=5)
+        
+        # Ramka dla tabeli
+        table_frame = ttk.Frame(self.found_frame)
+        table_frame.pack(fill='both', expand=True, padx=10, pady=5)
+        
+        # Treeview z kolumnami
+        columns = ('date', 'sender', 'subject', 'filename')
+        self.found_tree = ttk.Treeview(table_frame, columns=columns, show='headings', height=20)
+        
+        # Definiowanie nagłówków
+        self.found_tree.heading('date', text='Data', command=lambda: self.sort_found_column('date', False))
+        self.found_tree.heading('sender', text='Nadawca', command=lambda: self.sort_found_column('sender', False))
+        self.found_tree.heading('subject', text='Temat', command=lambda: self.sort_found_column('subject', False))
+        self.found_tree.heading('filename', text='Nazwa Pliku', command=lambda: self.sort_found_column('filename', False))
+        
+        # Ustawienie szerokości kolumn
+        self.found_tree.column('date', width=150)
+        self.found_tree.column('sender', width=200)
+        self.found_tree.column('subject', width=250)
+        self.found_tree.column('filename', width=200)
+        
+        # Scrollbar
+        scrollbar = ttk.Scrollbar(table_frame, orient='vertical', command=self.found_tree.yview)
+        self.found_tree.configure(yscrollcommand=scrollbar.set)
+        
+        # Pakowanie
+        self.found_tree.pack(side='left', fill='both', expand=True)
+        scrollbar.pack(side='right', fill='y')
+        
+        # Podwójne kliknięcie otwiera plik
+        self.found_tree.bind('<Double-1>', self.on_found_invoice_double_click)
+        
+        # Załaduj dane do tabeli
+        self.refresh_found_invoices()
+    
     def create_about_tab(self):
         """Tworzenie zakładki O programie"""
         # Ramka centralna
@@ -329,7 +394,10 @@ class EmailInvoiceFinderApp:
                 'range_1m': self.range_1m_var.get() if self.save_search_config_var.get() else False,
                 'range_3m': self.range_3m_var.get() if self.save_search_config_var.get() else False,
                 'range_6m': self.range_6m_var.get() if self.save_search_config_var.get() else False,
-                'range_week': self.range_week_var.get() if self.save_search_config_var.get() else False
+                'range_week': self.range_week_var.get() if self.save_search_config_var.get() else False,
+                'invoice_filename_pattern': self.search_config.get('invoice_filename_pattern', r'fakt'),
+                'overwrite_policy': self.search_config.get('overwrite_policy', 'suffix'),
+                'search_all_folders': self.search_config.get('search_all_folders', True)
             }
         }
         
@@ -468,6 +536,141 @@ class EmailInvoiceFinderApp:
         if folder:
             self.folder_entry.delete(0, tk.END)
             self.folder_entry.insert(0, folder)
+    
+    def load_found_invoices(self):
+        """Wczytywanie listy znalezionych faktur z pliku"""
+        if not FOUND_INVOICES_FILE.exists():
+            self.found_invoices = []
+            return
+        
+        try:
+            with open(FOUND_INVOICES_FILE, 'r', encoding='utf-8') as f:
+                self.found_invoices = json.load(f)
+        except Exception as e:
+            print(f"Błąd wczytywania znalezionych faktur: {e}")
+            self.found_invoices = []
+    
+    def save_found_invoices(self):
+        """Zapisywanie listy znalezionych faktur do pliku"""
+        try:
+            with open(FOUND_INVOICES_FILE, 'w', encoding='utf-8') as f:
+                json.dump(self.found_invoices, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"Błąd zapisu znalezionych faktur: {e}")
+    
+    def add_found_invoice(self, date, sender, subject, filename, file_path):
+        """Dodawanie nowej faktury do listy znalezionych"""
+        invoice = {
+            'date': date,
+            'sender': sender,
+            'subject': subject,
+            'filename': filename,
+            'file_path': file_path,
+            'found_timestamp': datetime.now().isoformat()
+        }
+        self.found_invoices.append(invoice)
+        self.save_found_invoices()
+    
+    def refresh_found_invoices(self):
+        """Odświeżanie tabeli znalezionych faktur"""
+        # Wyczyść tabelę
+        for item in self.found_tree.get_children():
+            self.found_tree.delete(item)
+        
+        # Dodaj faktury do tabeli (store file_path in tags for efficient access)
+        for invoice in self.found_invoices:
+            self.found_tree.insert('', 'end', values=(
+                invoice.get('date', ''),
+                invoice.get('sender', ''),
+                invoice.get('subject', ''),
+                invoice.get('filename', '')
+            ), tags=(invoice.get('file_path', ''),))
+    
+    def sort_found_column(self, col, reverse):
+        """Sortowanie kolumny w tabeli znalezionych faktur"""
+        col_index = {'date': 0, 'sender': 1, 'subject': 2, 'filename': 3}
+        
+        # Pobierz wszystkie elementy
+        items = [(self.found_tree.set(k, col), k) for k in self.found_tree.get_children('')]
+        
+        # Sortuj
+        items.sort(reverse=reverse)
+        
+        # Przeorganizuj elementy
+        for index, (val, k) in enumerate(items):
+            self.found_tree.move(k, '', index)
+        
+        # Odwróć kolejność sortowania przy następnym kliknięciu
+        self.found_tree.heading(col, command=lambda: self.sort_found_column(col, not reverse))
+    
+    def clear_found_invoices(self):
+        """Czyszczenie listy znalezionych faktur"""
+        if messagebox.askyesno("Potwierdzenie", "Czy na pewno chcesz wyczyścić listę znalezionych faktur?"):
+            self.found_invoices = []
+            self.save_found_invoices()
+            self.refresh_found_invoices()
+    
+    def on_found_invoice_double_click(self, event):
+        """Obsługa podwójnego kliknięcia na fakturę - otwiera plik PDF"""
+        selection = self.found_tree.selection()
+        if not selection:
+            return
+        
+        item = selection[0]
+        values = self.found_tree.item(item, 'values')
+        tags = self.found_tree.item(item, 'tags')
+        
+        if not values or len(values) < 4:
+            return
+        
+        # Pobierz ścieżkę z tagów (jeśli dostępna)
+        file_path = tags[0] if tags else None
+        
+        # Fallback: znajdź po nazwie pliku
+        if not file_path:
+            filename = values[3]
+            for inv in self.found_invoices:
+                if inv.get('filename') == filename:
+                    file_path = inv.get('file_path', '')
+                    break
+        
+        if not file_path:
+            messagebox.showerror("Błąd", "Nie znaleziono ścieżki do pliku")
+            return
+        
+        if not os.path.exists(file_path):
+            # Plik nie istnieje
+            response = messagebox.askyesnocancel(
+                "Plik nie istnieje",
+                f"Plik {os.path.basename(file_path)} nie został znaleziony.\n\n"
+                f"Oczekiwana ścieżka: {file_path}\n\n"
+                "Czy chcesz otworzyć folder nadrzędny?"
+            )
+            
+            if response:  # Yes - otwórz folder
+                folder_path = os.path.dirname(file_path) if file_path else os.path.expanduser('~')
+                if os.path.exists(folder_path):
+                    self.open_file(folder_path)
+                else:
+                    messagebox.showerror("Błąd", f"Folder również nie istnieje: {folder_path}")
+        else:
+            # Plik istnieje - otwórz go
+            self.open_file(file_path)
+    
+    def open_file(self, file_path):
+        """Otwieranie pliku za pomocą domyślnej aplikacji systemowej (cross-platform)"""
+        try:
+            system = platform.system()
+            
+            if system == 'Windows':
+                os.startfile(file_path)
+            elif system == 'Darwin':  # macOS
+                subprocess.run(['open', file_path], check=True)
+            else:  # Linux i inne
+                subprocess.run(['xdg-open', file_path], check=True)
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Nie można otworzyć pliku:\n{str(e)}")
+    
     
     def safe_log(self, message):
         """Thread-safe logging to queue"""
@@ -681,6 +884,63 @@ class EmailInvoiceFinderApp:
         except (TypeError, ValueError):
             return True  # W razie błędu parsowania, nie odrzucamy
     
+    def list_all_folders_recursively(self, mail):
+        """Rekursywnie listuje wszystkie foldery IMAP"""
+        try:
+            status, folders = mail.list()
+            if status != 'OK':
+                return ['INBOX']
+            
+            folder_list = []
+            for folder in folders:
+                # Parse folder name from IMAP response
+                # Format: (\\HasNoChildren) "/" "INBOX"
+                folder_str = folder.decode() if isinstance(folder, bytes) else folder
+                parts = folder_str.split('"')
+                
+                if len(parts) >= 3:
+                    folder_name = parts[-2]
+                    folder_list.append(folder_name)
+            
+            return folder_list if folder_list else ['INBOX']
+        except Exception as e:
+            self.safe_log(f"Błąd listowania folderów: {e}")
+            return ['INBOX']
+    
+    def matches_invoice_pattern(self, filename):
+        """Sprawdza czy nazwa pliku pasuje do wzorca faktury"""
+        if not filename:
+            return False
+        
+        # Pobierz wzorzec z konfiguracji
+        pattern = self.search_config.get('invoice_filename_pattern', r'fakt')
+        
+        try:
+            # Sprawdź czy wzorzec występuje w nazwie pliku (bez rozróżniania wielkości liter)
+            return re.search(pattern, filename, re.IGNORECASE) is not None
+        except re.error:
+            # Jeśli regex jest nieprawidłowy, użyj prostego wyszukiwania
+            return pattern.lower() in filename.lower()
+    
+    def get_unique_filename(self, output_folder, filename):
+        """Generuje unikalną nazwę pliku zgodnie z polityką nadpisywania"""
+        overwrite_policy = self.search_config.get('overwrite_policy', 'suffix')
+        output_path = os.path.join(output_folder, filename)
+        
+        if overwrite_policy == 'overwrite':
+            return output_path
+        
+        # Polityka 'suffix' - dodaj numer jeśli plik istnieje
+        if not os.path.exists(output_path):
+            return output_path
+        
+        base, ext = os.path.splitext(filename)
+        counter = 1
+        while os.path.exists(os.path.join(output_folder, f"{base}_{counter}{ext}")):
+            counter += 1
+        
+        return os.path.join(output_folder, f"{base}_{counter}{ext}")
+    
     def _search_with_imap_threaded(self, nip, output_folder, cutoff_dt):
         """Threaded IMAP search with stop event checking and timestamp setting"""
         found_count = 0
@@ -695,102 +955,161 @@ class EmailInvoiceFinderApp:
         
         self.safe_log("Połączono z serwerem IMAP")
         
-        # Select INBOX
-        mail.select('INBOX')
+        # Get list of all folders if configured to search all
+        search_all_folders = self.search_config.get('search_all_folders', True)
         
-        # Search all messages
-        status, messages = mail.search(None, 'ALL')
+        if search_all_folders:
+            folders = self.list_all_folders_recursively(mail)
+            self.safe_log(f"Znaleziono {len(folders)} folderów do przeszukania")
+        else:
+            folders = ['INBOX']
         
-        if status != 'OK':
-            raise Exception("Nie można pobrać listy wiadomości")
-        
-        message_ids = messages[0].split()
-        total_messages = len(message_ids)
-        
-        self.safe_log(f"Znaleziono {total_messages} wiadomości do przeszukania")
-        
-        # Process messages with stop event checking
-        for i, msg_id in enumerate(message_ids, 1):
-            # Check if stop was requested
+        # Search each folder
+        for folder in folders:
             if self.stop_event.is_set():
                 break
             
-            if i % 10 == 0:
-                self.safe_log(f"Przetworzono {i}/{total_messages} wiadomości...")
-            
             try:
-                status, msg_data = mail.fetch(msg_id, '(RFC822)')
+                self.safe_log(f"Przeszukiwanie folderu: {folder}")
                 
+                # Select folder
+                status, _ = mail.select(folder, readonly=True)
                 if status != 'OK':
+                    self.safe_log(f"  Nie można otworzyć folderu {folder}")
                     continue
                 
-                email_body = msg_data[0][1]
-                email_message = email.message_from_bytes(email_body)
+                # Search all messages in this folder
+                status, messages = mail.search(None, 'ALL')
                 
-                # Check message date
-                date_header = email_message.get('Date')
-                if not self._email_date_is_within_cutoff(date_header, cutoff_dt):
-                    continue  # Skip messages older than cutoff
+                if status != 'OK':
+                    self.safe_log(f"  Nie można pobrać listy wiadomości z {folder}")
+                    continue
                 
-                # Get subject
-                subject = self.decode_email_subject(email_message.get('Subject', ''))
+                message_ids = messages[0].split()
+                total_messages = len(message_ids)
                 
-                # Check attachments
-                for part in email_message.walk():
+                self.safe_log(f"  Folder {folder}: {total_messages} wiadomości")
+                
+                # Process messages with stop event checking
+                for i, msg_id in enumerate(message_ids, 1):
+                    # Check if stop was requested
                     if self.stop_event.is_set():
                         break
                     
-                    if part.get_content_maintype() == 'multipart':
-                        continue
+                    if i % 10 == 0:
+                        self.safe_log(f"  {folder}: Przetworzono {i}/{total_messages} wiadomości...")
                     
-                    if part.get('Content-Disposition') is None:
-                        continue
-                    
-                    filename = part.get_filename()
-                    
-                    if filename and filename.lower().endswith('.pdf'):
-                        filename = self.decode_email_subject(filename)
+                    try:
+                        status, msg_data = mail.fetch(msg_id, '(RFC822)')
                         
-                        # Save temporarily
-                        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
-                            tmp_file.write(part.get_payload(decode=True))
-                            tmp_path = tmp_file.name
+                        if status != 'OK':
+                            continue
                         
-                        try:
-                            # Extract text from PDF
-                            pdf_text = self.extract_text_from_pdf(tmp_path)
+                        email_body = msg_data[0][1]
+                        email_message = email.message_from_bytes(email_body)
+                        
+                        # Check message date
+                        date_header = email_message.get('Date')
+                        if not self._email_date_is_within_cutoff(date_header, cutoff_dt):
+                            continue  # Skip messages older than cutoff
+                        
+                        # Get subject and sender
+                        subject = self.decode_email_subject(email_message.get('Subject', ''))
+                        sender = self.decode_email_subject(email_message.get('From', ''))
+                        
+                        # Check attachments
+                        for part in email_message.walk():
+                            if self.stop_event.is_set():
+                                break
                             
-                            # Check if contains NIP
-                            if self.search_nip_in_text(pdf_text, nip):
-                                found_count += 1
+                            if part.get_content_maintype() == 'multipart':
+                                continue
+                            
+                            if part.get('Content-Disposition') is None:
+                                continue
+                            
+                            filename = part.get_filename()
+                            
+                            # Check if it's a PDF and matches invoice pattern
+                            if filename and filename.lower().endswith('.pdf'):
+                                filename = self.decode_email_subject(filename)
                                 
-                                # Save file with timestamp
-                                safe_filename = self.make_safe_filename(filename)
-                                output_path = os.path.join(output_folder, f"{found_count}_{safe_filename}")
+                                # Check if filename matches invoice pattern
+                                if not self.matches_invoice_pattern(filename):
+                                    continue
                                 
-                                self._save_attachment_with_timestamp(
-                                    part.get_payload(decode=True), 
-                                    output_path, 
-                                    email_message
-                                )
+                                # Save temporarily
+                                with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+                                    tmp_file.write(part.get_payload(decode=True))
+                                    tmp_path = tmp_file.name
                                 
-                                self.safe_log(f"✓ Znaleziono: {filename} (z: {subject})")
-                        
-                        finally:
-                            # Remove temporary file
-                            try:
-                                os.unlink(tmp_path)
-                            except (OSError, PermissionError):
-                                # Silently ignore - temp file cleanup is not critical
-                                pass
-            
+                                try:
+                                    # Extract text from PDF
+                                    pdf_text = self.extract_text_from_pdf(tmp_path)
+                                    
+                                    # Check if contains NIP (if searching by NIP)
+                                    should_save = True
+                                    if nip:
+                                        should_save = self.search_nip_in_text(pdf_text, nip)
+                                    
+                                    if should_save:
+                                        found_count += 1
+                                        
+                                        # Get unique filename based on policy
+                                        safe_filename = self.make_safe_filename(filename)
+                                        output_path = self.get_unique_filename(output_folder, safe_filename)
+                                        
+                                        # Save file with timestamp
+                                        self._save_attachment_with_timestamp(
+                                            part.get_payload(decode=True), 
+                                            output_path, 
+                                            email_message
+                                        )
+                                        
+                                        # Format date for display
+                                        email_date = ''
+                                        try:
+                                            if date_header:
+                                                email_dt = parsedate_to_datetime(date_header)
+                                                email_date = email_dt.strftime('%Y-%m-%d %H:%M')
+                                        except:
+                                            pass
+                                        
+                                        # Add to found invoices list
+                                        self.add_found_invoice(
+                                            date=email_date,
+                                            sender=sender,
+                                            subject=subject,
+                                            filename=os.path.basename(output_path),
+                                            file_path=output_path
+                                        )
+                                        
+                                        self.safe_log(f"✓ Znaleziono: {filename} (z: {subject})")
+                                
+                                finally:
+                                    # Remove temporary file - robust cleanup
+                                    try:
+                                        os.unlink(tmp_path)
+                                    except (OSError, PermissionError, FileNotFoundError):
+                                        # Silently ignore - temp file cleanup is not critical
+                                        pass
+                    
+                    except Exception as e:
+                        # Log error but continue processing other messages
+                        self.safe_log(f"  Błąd przetwarzania wiadomości {msg_id}: {e}")
+                        continue
+                
+                # Close current folder before moving to next
+                mail.close()
+                
             except Exception as e:
-                # Log error but continue processing other messages
-                self.safe_log(f"Błąd przetwarzania wiadomości {msg_id}: {e}")
+                self.safe_log(f"Błąd przeszukiwania folderu {folder}: {e}")
                 continue
         
-        mail.close()
         mail.logout()
+        
+        # Refresh found invoices tab from main thread
+        self.root.after(0, self.refresh_found_invoices)
         
         return found_count
     
@@ -878,10 +1197,10 @@ class EmailInvoiceFinderApp:
                                 self.safe_log(f"✓ Znaleziono: {filename} (z: {subject})")
                         
                         finally:
-                            # Remove temporary file
+                            # Remove temporary file - robust cleanup
                             try:
                                 os.unlink(tmp_path)
-                            except (OSError, PermissionError):
+                            except (OSError, PermissionError, FileNotFoundError):
                                 # Silently ignore - temp file cleanup is not critical
                                 pass
             
