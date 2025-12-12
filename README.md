@@ -33,6 +33,8 @@ pip install -r requirements.txt
 python main.py
 ```
 
+**Wersjonowanie**: Aplikacja wyświetla wersję w tytule okna, która jest pobierana z pliku `version.txt`. Wersja jest automatycznie zwiększana przez GitHub Actions workflow przy każdym push do gałęzi `main` (patch version jest inkrementowana).
+
 2. W zakładce "Konfiguracja poczty":
    - Wybierz protokół (IMAP, POP3 lub Exchange)
    - Podaj adres serwera email (np. imap.gmail.com)
@@ -46,7 +48,7 @@ python main.py
 3. W zakładce "Wyszukiwanie NIP":
    - Wprowadź numer NIP do wyszukania
    - Wybierz folder, w którym mają być zapisane znalezione faktury
-   - Opcjonalnie wybierz zakres przeszukiwania (1 miesiąc, 3 miesiące, 6 miesięcy)
+   - Opcjonalnie wybierz zakres przeszukiwania (1 miesiąc, 3 miesiące, 6 miesięcy lub ostatni tydzień)
    - Opcjonalnie zaznacz "Zapisz ustawienia" aby zapisać preferencje
    - Kliknij "Szukaj faktur"
    - Podczas wyszukiwania możesz kliknąć "Przerwij" aby zatrzymać operację
@@ -90,9 +92,11 @@ python main.py
 - ✅ Pasek postępu i informacje o przebiegu wyszukiwania w czasie rzeczywistym
 - ✅ Obsługa różnych formatów zapisu NIP (z kreskami i bez)
 - ✅ Możliwość zapisania ustawień do pliku konfiguracyjnego
-- ✅ Filtrowanie wiadomości według zakresu czasowego (1/3/6 miesięcy)
+- ✅ Filtrowanie wiadomości według zakresu czasowego (1/3/6 miesięcy lub ostatni tydzień)
 - ✅ Przełączanie widoczności hasła
 - ✅ Ustawianie daty modyfikacji plików zgodnie z datą otrzymania emaila
+- ✅ Zakładka "O programie" z danymi kontaktowymi i wersją aplikacji
+- ✅ Automatyczne wersjonowanie aplikacji (patch version zwiększana przy każdym push do main)
 
 ## Uwagi
 
