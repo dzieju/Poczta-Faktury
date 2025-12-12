@@ -21,8 +21,6 @@ from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
 import threading
 import queue
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import time
 
 # Plik konfiguracyjny
 CONFIG_FILE = Path.home() / '.poczta_faktury_config.json'
@@ -487,8 +485,9 @@ class EmailInvoiceFinderApp:
             try:
                 os.utime(file_path, (timestamp, timestamp))
             except (OSError, PermissionError) as e:
-                # Log but don't fail if we can't set timestamp
-                print(f"Warning: Could not set timestamp for {file_path}: {e}")
+                # Log warning but don't fail - timestamp setting is not critical
+                # Some filesystems or permissions may prevent timestamp modification
+                self.safe_log(f"Ostrzeżenie: Nie można ustawić timestampu dla {os.path.basename(file_path)}")
     
     def _save_attachment_with_timestamp(self, attachment_data, output_path, email_message):
         """Save attachment and set its timestamp from email date"""
@@ -683,10 +682,12 @@ class EmailInvoiceFinderApp:
                             try:
                                 os.unlink(tmp_path)
                             except (OSError, PermissionError):
+                                # Silently ignore - temp file cleanup is not critical
                                 pass
             
             except Exception as e:
-                print(f"Błąd przetwarzania wiadomości {msg_id}: {e}")
+                # Log error but continue processing other messages
+                self.safe_log(f"Błąd przetwarzania wiadomości {msg_id}: {e}")
                 continue
         
         mail.close()
@@ -782,10 +783,12 @@ class EmailInvoiceFinderApp:
                             try:
                                 os.unlink(tmp_path)
                             except (OSError, PermissionError):
+                                # Silently ignore - temp file cleanup is not critical
                                 pass
             
             except Exception as e:
-                print(f"Błąd przetwarzania wiadomości {i}: {e}")
+                # Log error but continue processing other messages
+                self.safe_log(f"Błąd przetwarzania wiadomości {i}: {e}")
                 continue
         
         mail.quit()
@@ -846,7 +849,11 @@ class EmailInvoiceFinderApp:
         return False
     
     def search_invoices(self):
-        """Główna funkcja wyszukiwania faktur"""
+        """DEPRECATED: Główna funkcja wyszukiwania faktur (blocking, use start_search_thread instead)
+        
+        This method blocks the GUI during search. For GUI usage, use start_search_thread() instead.
+        Kept for backwards compatibility and programmatic/testing usage.
+        """
         nip = self.nip_entry.get().strip()
         output_folder = self.folder_entry.get().strip()
         
