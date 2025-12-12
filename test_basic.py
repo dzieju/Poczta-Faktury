@@ -24,16 +24,16 @@ def test_nip_search_logic():
         if clean_nip in clean_text:
             return True
         
-        # Alternatywnie szukaj z możliwymi separatorami
-        nip_patterns = [
-            clean_nip,
-            '-'.join([clean_nip[:3], clean_nip[3:6], clean_nip[6:8], clean_nip[8:]]),
-            '-'.join([clean_nip[:3], clean_nip[3:]]),
-        ]
-        
-        for pattern in nip_patterns:
-            if pattern in text:
-                return True
+        # Alternatywnie szukaj z możliwymi separatorami (tylko dla NIP o długości 10)
+        if len(clean_nip) == 10:
+            nip_patterns = [
+                '-'.join([clean_nip[:3], clean_nip[3:6], clean_nip[6:8], clean_nip[8:]]),
+                '-'.join([clean_nip[:3], clean_nip[3:]]),
+            ]
+            
+            for pattern in nip_patterns:
+                if pattern in text:
+                    return True
         
         return False
     
@@ -79,7 +79,7 @@ def test_safe_filename():
         # Ogranicz długość
         if len(safe_filename) > 200:
             name, ext = os.path.splitext(safe_filename)
-            safe_filename = name[:196] + ext
+            safe_filename = name[:200-len(ext)] + ext
         
         return safe_filename if safe_filename else 'faktura.pdf'
     

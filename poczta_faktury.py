@@ -249,16 +249,16 @@ class EmailInvoiceFinderApp:
         if clean_nip in clean_text:
             return True
         
-        # Alternatywnie szukaj z możliwymi separatorami
-        nip_patterns = [
-            clean_nip,
-            '-'.join([clean_nip[:3], clean_nip[3:6], clean_nip[6:8], clean_nip[8:]]),
-            '-'.join([clean_nip[:3], clean_nip[3:]]),
-        ]
-        
-        for pattern in nip_patterns:
-            if pattern in text:
-                return True
+        # Alternatywnie szukaj z możliwymi separatorami (tylko dla NIP o długości 10)
+        if len(clean_nip) == 10:
+            nip_patterns = [
+                '-'.join([clean_nip[:3], clean_nip[3:6], clean_nip[6:8], clean_nip[8:]]),
+                '-'.join([clean_nip[:3], clean_nip[3:]]),
+            ]
+            
+            for pattern in nip_patterns:
+                if pattern in text:
+                    return True
         
         return False
     
@@ -403,7 +403,7 @@ class EmailInvoiceFinderApp:
                             # Usuń plik tymczasowy
                             try:
                                 os.unlink(tmp_path)
-                            except:
+                            except (OSError, PermissionError):
                                 pass
             
             except Exception as e:
@@ -491,7 +491,7 @@ class EmailInvoiceFinderApp:
                             # Usuń plik tymczasowy
                             try:
                                 os.unlink(tmp_path)
-                            except:
+                            except (OSError, PermissionError):
                                 pass
             
             except Exception as e:
@@ -512,7 +512,7 @@ class EmailInvoiceFinderApp:
             if isinstance(part, bytes):
                 try:
                     decoded_parts.append(part.decode(encoding or 'utf-8'))
-                except:
+                except (UnicodeDecodeError, LookupError):
                     decoded_parts.append(part.decode('utf-8', errors='ignore'))
             else:
                 decoded_parts.append(str(part))
@@ -531,8 +531,9 @@ class EmailInvoiceFinderApp:
         # Ogranicz długość
         if len(safe_filename) > 200:
             name, ext = os.path.splitext(safe_filename)
-            safe_filename = name[:196] + ext
+            safe_filename = name[:200-len(ext)] + ext
         
+        return safe_filename if safe_filename else 'faktura.pdf'
         return safe_filename if safe_filename else 'faktura.pdf'
 
 
