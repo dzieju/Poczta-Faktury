@@ -19,6 +19,10 @@ import pdfplumber
 import json
 from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
+import threading
+import queue
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 
 # Plik konfiguracyjny
 CONFIG_FILE = Path.home() / '.poczta_faktury_config.json'
@@ -52,6 +56,11 @@ class EmailInvoiceFinderApp:
             'range_3m': False,
             'range_6m': False
         }
+        
+        # Threading controls for non-blocking search
+        self.search_thread = None
+        self.stop_event = threading.Event()
+        self.log_queue = queue.Queue()
         
         # Wczytaj konfigurację z pliku
         self.load_config()
@@ -178,9 +187,17 @@ class EmailInvoiceFinderApp:
         ttk.Checkbutton(self.search_frame, text="Zapisz ustawienia", 
                        variable=self.save_search_config_var).grid(row=3, column=0, columnspan=2, padx=10, pady=5)
         
-        # Przycisk wyszukiwania
-        ttk.Button(self.search_frame, text="Szukaj faktur", 
-                  command=self.search_invoices).grid(row=4, column=0, columnspan=2, pady=20)
+        # Przyciski wyszukiwania
+        button_frame = ttk.Frame(self.search_frame)
+        button_frame.grid(row=4, column=0, columnspan=2, pady=20)
+        
+        self.search_button = ttk.Button(button_frame, text="Szukaj faktur", 
+                   command=self.start_search_thread)
+        self.search_button.pack(side='left', padx=5)
+        
+        self.stop_button = ttk.Button(button_frame, text="Przerwij", 
+                   command=self.stop_search, state='disabled')
+        self.stop_button.pack(side='left', padx=5)
         
         # Pasek postępu
         self.progress = ttk.Progressbar(self.search_frame, mode='indeterminate')
@@ -358,6 +375,178 @@ class EmailInvoiceFinderApp:
             self.folder_entry.delete(0, tk.END)
             self.folder_entry.insert(0, folder)
     
+    def safe_log(self, message):
+        """Thread-safe logging to queue"""
+        self.log_queue.put(message)
+    
+    def _poll_log_queue(self):
+        """Poll log queue and update GUI - called periodically via root.after"""
+        try:
+            while True:
+                message = self.log_queue.get_nowait()
+                self.results_text.insert(tk.END, message + "\n")
+                self.results_text.see(tk.END)
+                self.root.update_idletasks()
+        except queue.Empty:
+            pass
+        
+        # Schedule next poll if search is running
+        if self.search_thread and self.search_thread.is_alive():
+            self.root.after(100, self._poll_log_queue)
+    
+    def start_search_thread(self):
+        """Start search in a separate thread"""
+        # Validate inputs
+        nip = self.nip_entry.get().strip()
+        output_folder = self.folder_entry.get().strip()
+        
+        if not nip:
+            messagebox.showerror("Błąd", "Proszę podać numer NIP")
+            return
+        
+        if not output_folder:
+            messagebox.showerror("Błąd", "Proszę wybrać folder zapisu")
+            return
+        
+        if not os.path.exists(output_folder):
+            messagebox.showerror("Błąd", "Wybrany folder nie istnieje")
+            return
+        
+        if not self.email_config.get('server'):
+            messagebox.showerror("Błąd", "Proszę najpierw skonfigurować połączenie email")
+            self.notebook.select(0)  # Przełącz na zakładkę konfiguracji
+            return
+        
+        # Update search_config
+        self.search_config = {
+            'nip': nip,
+            'output_folder': output_folder,
+            'save_search_settings': self.save_search_config_var.get(),
+            'range_1m': self.range_1m_var.get(),
+            'range_3m': self.range_3m_var.get(),
+            'range_6m': self.range_6m_var.get()
+        }
+        
+        # Save config if checkbox is checked
+        if self.save_search_config_var.get():
+            self.save_config()
+        
+        # Clear results and prepare UI
+        self.results_text.delete(1.0, tk.END)
+        self.stop_event.clear()
+        
+        # Update button states
+        self.search_button.config(state='disabled')
+        self.stop_button.config(state='normal')
+        
+        # Start progress bar
+        self.progress.start()
+        
+        # Prepare search parameters
+        params = {
+            'nip': nip,
+            'output_folder': output_folder,
+            'protocol': self.email_config['protocol'],
+            'cutoff_dt': self._get_cutoff_datetime()
+        }
+        
+        # Start search thread
+        self.search_thread = threading.Thread(target=self._search_worker, args=(params,), daemon=True)
+        self.search_thread.start()
+        
+        # Start polling log queue
+        self.root.after(100, self._poll_log_queue)
+    
+    def stop_search(self):
+        """Stop the running search"""
+        self.stop_event.set()
+        self.safe_log("Przerwano przez użytkownika - czekam na zakończenie...")
+        self.stop_button.config(state='disabled')
+    
+    def _restore_ui_after_search(self):
+        """Restore UI state after search completes - called from worker thread via root.after"""
+        self.progress.stop()
+        self.search_button.config(state='normal')
+        self.stop_button.config(state='disabled')
+    
+    def _get_email_timestamp(self, email_message):
+        """Extract timestamp from email Date header, return epoch time or None"""
+        try:
+            date_header = email_message.get('Date')
+            if date_header:
+                email_dt = parsedate_to_datetime(date_header)
+                # Convert to epoch timestamp
+                return email_dt.timestamp()
+        except (TypeError, ValueError, AttributeError) as e:
+            pass
+        return None
+    
+    def _set_file_timestamp(self, file_path, timestamp):
+        """Set file mtime and atime to given timestamp"""
+        if timestamp:
+            try:
+                os.utime(file_path, (timestamp, timestamp))
+            except (OSError, PermissionError) as e:
+                # Log but don't fail if we can't set timestamp
+                print(f"Warning: Could not set timestamp for {file_path}: {e}")
+    
+    def _save_attachment_with_timestamp(self, attachment_data, output_path, email_message):
+        """Save attachment and set its timestamp from email date"""
+        with open(output_path, 'wb') as f:
+            f.write(attachment_data)
+        
+        # Set file timestamp from email date
+        timestamp = self._get_email_timestamp(email_message)
+        if timestamp:
+            self._set_file_timestamp(output_path, timestamp)
+    
+    def _search_worker(self, params):
+        """Worker thread for searching emails - runs in background"""
+        try:
+            nip = params['nip']
+            output_folder = params['output_folder']
+            protocol = params['protocol']
+            cutoff_dt = params['cutoff_dt']
+            
+            self.safe_log("Rozpoczynam wyszukiwanie...")
+            
+            # Information about time range
+            if cutoff_dt:
+                self.safe_log(f"Filtrowanie wiadomości starszych niż: {cutoff_dt.strftime('%Y-%m-%d')}")
+            
+            found_count = 0
+            
+            # Connect to email server
+            if protocol == 'POP3':
+                found_count = self._search_with_pop3_threaded(nip, output_folder, cutoff_dt)
+            else:  # IMAP or EXCHANGE
+                found_count = self._search_with_imap_threaded(nip, output_folder, cutoff_dt)
+            
+            # Log completion
+            if self.stop_event.is_set():
+                self.safe_log("\n=== Wyszukiwanie przerwane ===")
+                self.safe_log(f"Znaleziono faktur przed przerwaniem: {found_count}")
+            else:
+                self.safe_log("\n=== Zakończono wyszukiwanie ===")
+                self.safe_log(f"Znaleziono faktur z NIP {nip}: {found_count}")
+                
+                # Show message box from main thread
+                if found_count > 0:
+                    self.root.after(0, lambda: messagebox.showinfo("Sukces", 
+                        f"Znaleziono {found_count} faktur(y) z podanym NIP.\nPliki zapisano w: {output_folder}"))
+                else:
+                    self.root.after(0, lambda: messagebox.showinfo("Informacja", 
+                        "Nie znaleziono faktur z podanym NIP"))
+        
+        except Exception as e:
+            self.safe_log(f"\nBŁĄD: {str(e)}")
+            self.root.after(0, lambda: messagebox.showerror("Błąd", 
+                f"Wystąpił błąd podczas wyszukiwania:\n{str(e)}"))
+        
+        finally:
+            # Restore UI state from main thread
+            self.root.after(0, self._restore_ui_after_search)
+    
     def _get_cutoff_datetime(self):
         """Obliczanie daty granicznej na podstawie zaznaczonych zakresów
         
@@ -393,6 +582,215 @@ class EmailInvoiceFinderApp:
             return email_dt >= cutoff_dt
         except (TypeError, ValueError):
             return True  # W razie błędu parsowania, nie odrzucamy
+    
+    def _search_with_imap_threaded(self, nip, output_folder, cutoff_dt):
+        """Threaded IMAP search with stop event checking and timestamp setting"""
+        found_count = 0
+        
+        # Connect to server
+        if self.email_config['use_ssl']:
+            mail = imaplib.IMAP4_SSL(self.email_config['server'], int(self.email_config['port']))
+        else:
+            mail = imaplib.IMAP4(self.email_config['server'], int(self.email_config['port']))
+        
+        mail.login(self.email_config['email'], self.email_config['password'])
+        
+        self.safe_log("Połączono z serwerem IMAP")
+        
+        # Select INBOX
+        mail.select('INBOX')
+        
+        # Search all messages
+        status, messages = mail.search(None, 'ALL')
+        
+        if status != 'OK':
+            raise Exception("Nie można pobrać listy wiadomości")
+        
+        message_ids = messages[0].split()
+        total_messages = len(message_ids)
+        
+        self.safe_log(f"Znaleziono {total_messages} wiadomości do przeszukania")
+        
+        # Process messages with stop event checking
+        for i, msg_id in enumerate(message_ids, 1):
+            # Check if stop was requested
+            if self.stop_event.is_set():
+                break
+            
+            if i % 10 == 0:
+                self.safe_log(f"Przetworzono {i}/{total_messages} wiadomości...")
+            
+            try:
+                status, msg_data = mail.fetch(msg_id, '(RFC822)')
+                
+                if status != 'OK':
+                    continue
+                
+                email_body = msg_data[0][1]
+                email_message = email.message_from_bytes(email_body)
+                
+                # Check message date
+                date_header = email_message.get('Date')
+                if not self._email_date_is_within_cutoff(date_header, cutoff_dt):
+                    continue  # Skip messages older than cutoff
+                
+                # Get subject
+                subject = self.decode_email_subject(email_message.get('Subject', ''))
+                
+                # Check attachments
+                for part in email_message.walk():
+                    if self.stop_event.is_set():
+                        break
+                    
+                    if part.get_content_maintype() == 'multipart':
+                        continue
+                    
+                    if part.get('Content-Disposition') is None:
+                        continue
+                    
+                    filename = part.get_filename()
+                    
+                    if filename and filename.lower().endswith('.pdf'):
+                        filename = self.decode_email_subject(filename)
+                        
+                        # Save temporarily
+                        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+                            tmp_file.write(part.get_payload(decode=True))
+                            tmp_path = tmp_file.name
+                        
+                        try:
+                            # Extract text from PDF
+                            pdf_text = self.extract_text_from_pdf(tmp_path)
+                            
+                            # Check if contains NIP
+                            if self.search_nip_in_text(pdf_text, nip):
+                                found_count += 1
+                                
+                                # Save file with timestamp
+                                safe_filename = self.make_safe_filename(filename)
+                                output_path = os.path.join(output_folder, f"{found_count}_{safe_filename}")
+                                
+                                self._save_attachment_with_timestamp(
+                                    part.get_payload(decode=True), 
+                                    output_path, 
+                                    email_message
+                                )
+                                
+                                self.safe_log(f"✓ Znaleziono: {filename} (z: {subject})")
+                        
+                        finally:
+                            # Remove temporary file
+                            try:
+                                os.unlink(tmp_path)
+                            except (OSError, PermissionError):
+                                pass
+            
+            except Exception as e:
+                print(f"Błąd przetwarzania wiadomości {msg_id}: {e}")
+                continue
+        
+        mail.close()
+        mail.logout()
+        
+        return found_count
+    
+    def _search_with_pop3_threaded(self, nip, output_folder, cutoff_dt):
+        """Threaded POP3 search with stop event checking and timestamp setting"""
+        found_count = 0
+        
+        # Connect to server
+        if self.email_config['use_ssl']:
+            mail = poplib.POP3_SSL(self.email_config['server'], int(self.email_config['port']))
+        else:
+            mail = poplib.POP3(self.email_config['server'], int(self.email_config['port']))
+        
+        mail.user(self.email_config['email'])
+        mail.pass_(self.email_config['password'])
+        
+        self.safe_log("Połączono z serwerem POP3")
+        
+        # Get message list
+        num_messages = len(mail.list()[1])
+        
+        self.safe_log(f"Znaleziono {num_messages} wiadomości do przeszukania")
+        
+        # Process messages with stop event checking
+        for i in range(1, num_messages + 1):
+            # Check if stop was requested
+            if self.stop_event.is_set():
+                break
+            
+            if i % 10 == 0:
+                self.safe_log(f"Przetworzono {i}/{num_messages} wiadomości...")
+            
+            try:
+                response, lines, octets = mail.retr(i)
+                email_body = b'\n'.join(lines)
+                email_message = email.message_from_bytes(email_body)
+                
+                # Check message date
+                date_header = email_message.get('Date')
+                if not self._email_date_is_within_cutoff(date_header, cutoff_dt):
+                    continue  # Skip messages older than cutoff
+                
+                # Get subject
+                subject = self.decode_email_subject(email_message.get('Subject', ''))
+                
+                # Check attachments
+                for part in email_message.walk():
+                    if self.stop_event.is_set():
+                        break
+                    
+                    if part.get_content_maintype() == 'multipart':
+                        continue
+                    
+                    if part.get('Content-Disposition') is None:
+                        continue
+                    
+                    filename = part.get_filename()
+                    
+                    if filename and filename.lower().endswith('.pdf'):
+                        filename = self.decode_email_subject(filename)
+                        
+                        # Save temporarily
+                        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+                            tmp_file.write(part.get_payload(decode=True))
+                            tmp_path = tmp_file.name
+                        
+                        try:
+                            # Extract text from PDF
+                            pdf_text = self.extract_text_from_pdf(tmp_path)
+                            
+                            # Check if contains NIP
+                            if self.search_nip_in_text(pdf_text, nip):
+                                found_count += 1
+                                
+                                # Save file with timestamp
+                                safe_filename = self.make_safe_filename(filename)
+                                output_path = os.path.join(output_folder, f"{found_count}_{safe_filename}")
+                                
+                                self._save_attachment_with_timestamp(
+                                    part.get_payload(decode=True), 
+                                    output_path, 
+                                    email_message
+                                )
+                                
+                                self.safe_log(f"✓ Znaleziono: {filename} (z: {subject})")
+                        
+                        finally:
+                            # Remove temporary file
+                            try:
+                                os.unlink(tmp_path)
+                            except (OSError, PermissionError):
+                                pass
+            
+            except Exception as e:
+                print(f"Błąd przetwarzania wiadomości {i}: {e}")
+                continue
+        
+        mail.quit()
+        
+        return found_count
     
     def extract_text_from_pdf(self, pdf_path):
         """Ekstrakcja tekstu z pliku PDF"""
@@ -750,7 +1148,6 @@ class EmailInvoiceFinderApp:
             name, ext = os.path.splitext(safe_filename)
             safe_filename = name[:200-len(ext)] + ext
         
-        return safe_filename if safe_filename else 'faktura.pdf'
         return safe_filename if safe_filename else 'faktura.pdf'
 
 
