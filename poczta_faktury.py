@@ -22,7 +22,6 @@ from email.utils import parsedate_to_datetime
 import threading
 import queue
 import subprocess
-import sys
 import platform
 
 # Plik konfiguracyjny
@@ -578,7 +577,7 @@ class EmailInvoiceFinderApp:
         for item in self.found_tree.get_children():
             self.found_tree.delete(item)
         
-        # Dodaj faktury do tabeli
+        # Dodaj faktury do tabeli (store file_path in tags for efficient access)
         for invoice in self.found_invoices:
             self.found_tree.insert('', 'end', values=(
                 invoice.get('date', ''),
@@ -619,29 +618,31 @@ class EmailInvoiceFinderApp:
         
         item = selection[0]
         values = self.found_tree.item(item, 'values')
+        tags = self.found_tree.item(item, 'tags')
         
         if not values or len(values) < 4:
             return
         
-        # Znajdź odpowiednią fakturę w liście
-        filename = values[3]
-        invoice = None
-        for inv in self.found_invoices:
-            if inv.get('filename') == filename:
-                invoice = inv
-                break
+        # Pobierz ścieżkę z tagów (jeśli dostępna)
+        file_path = tags[0] if tags else None
         
-        if not invoice:
-            messagebox.showerror("Błąd", "Nie znaleziono faktury w bazie danych")
+        # Fallback: znajdź po nazwie pliku
+        if not file_path:
+            filename = values[3]
+            for inv in self.found_invoices:
+                if inv.get('filename') == filename:
+                    file_path = inv.get('file_path', '')
+                    break
+        
+        if not file_path:
+            messagebox.showerror("Błąd", "Nie znaleziono ścieżki do pliku")
             return
         
-        file_path = invoice.get('file_path', '')
-        
-        if not file_path or not os.path.exists(file_path):
+        if not os.path.exists(file_path):
             # Plik nie istnieje
             response = messagebox.askyesnocancel(
                 "Plik nie istnieje",
-                f"Plik {filename} nie został znaleziony.\n\n"
+                f"Plik {os.path.basename(file_path)} nie został znaleziony.\n\n"
                 f"Oczekiwana ścieżka: {file_path}\n\n"
                 "Czy chcesz otworzyć folder nadrzędny?"
             )
@@ -1086,10 +1087,10 @@ class EmailInvoiceFinderApp:
                                         self.safe_log(f"✓ Znaleziono: {filename} (z: {subject})")
                                 
                                 finally:
-                                    # Remove temporary file
+                                    # Remove temporary file - robust cleanup
                                     try:
                                         os.unlink(tmp_path)
-                                    except (OSError, PermissionError):
+                                    except (OSError, PermissionError, FileNotFoundError):
                                         # Silently ignore - temp file cleanup is not critical
                                         pass
                     
@@ -1196,10 +1197,10 @@ class EmailInvoiceFinderApp:
                                 self.safe_log(f"✓ Znaleziono: {filename} (z: {subject})")
                         
                         finally:
-                            # Remove temporary file
+                            # Remove temporary file - robust cleanup
                             try:
                                 os.unlink(tmp_path)
-                            except (OSError, PermissionError):
+                            except (OSError, PermissionError, FileNotFoundError):
                                 # Silently ignore - temp file cleanup is not critical
                                 pass
             

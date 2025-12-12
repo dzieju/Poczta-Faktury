@@ -264,8 +264,8 @@ def test_found_invoices_persistence():
         print(f"  Test 2 (poprawność nazwy pliku): {'✓' if result2 else '✗'}")
         
         # Test 3: Sprawdź kodowanie polskich znaków
-        result3 = 'ó' in loaded_invoices[0]['subject'] or 'Faktura' in loaded_invoices[0]['subject']
-        print(f"  Test 3 (kodowanie UTF-8): {'✓' if result3 else '✗'}")
+        result3 = loaded_invoices[0]['subject'] == 'Faktura VAT 001/2024'
+        print(f"  Test 3 (kodowanie UTF-8 - pełny subject): {'✓' if result3 else '✗'}")
         
         return all([result1, result2, result3])
     finally:
