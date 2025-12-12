@@ -218,9 +218,9 @@ class EmailInvoiceFinderApp:
                 'nip': self.nip_entry.get() if self.save_search_config_var.get() else '',
                 'output_folder': self.folder_entry.get() if self.save_search_config_var.get() else '',
                 'save_search_settings': self.save_search_config_var.get(),
-                'range_1m': self.range_1m_var.get(),
-                'range_3m': self.range_3m_var.get(),
-                'range_6m': self.range_6m_var.get()
+                'range_1m': self.range_1m_var.get() if self.save_search_config_var.get() else False,
+                'range_3m': self.range_3m_var.get() if self.save_search_config_var.get() else False,
+                'range_6m': self.range_6m_var.get() if self.save_search_config_var.get() else False
             }
         }
         
@@ -229,6 +229,7 @@ class EmailInvoiceFinderApp:
                 json.dump(config, f, indent=2, ensure_ascii=False)
         except Exception as e:
             print(f"Błąd zapisu konfiguracji: {e}")
+            messagebox.showwarning("Ostrzeżenie", f"Nie udało się zapisać konfiguracji:\n{str(e)}")
     
     def load_config(self):
         """Wczytywanie konfiguracji z pliku JSON"""
@@ -249,6 +250,7 @@ class EmailInvoiceFinderApp:
             
         except Exception as e:
             print(f"Błąd wczytywania konfiguracji: {e}")
+            # Nie pokazujemy błędu przy starcie, żeby nie przeszkadzać użytkownikowi
     
     def _apply_loaded_config_to_ui(self):
         """Zastosowanie wczytanej konfiguracji do UI (wywoływane po utworzeniu widgetów)"""
@@ -357,7 +359,10 @@ class EmailInvoiceFinderApp:
             self.folder_entry.insert(0, folder)
     
     def _get_cutoff_datetime(self):
-        """Obliczanie daty granicznej na podstawie zaznaczonych zakresów"""
+        """Obliczanie daty granicznej na podstawie zaznaczonych zakresów
+        
+        Uwaga: Jeśli zaznaczono wiele zakresów, używany jest najdłuższy (6m > 3m > 1m).
+        """
         # Znajdź najdalszy zaznaczony zakres
         max_days = 0
         if self.range_6m_var.get():
