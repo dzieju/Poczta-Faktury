@@ -103,17 +103,12 @@ class EmailInvoiceFinderApp:
         self.notebook.add(self.config_frame, text="Konfiguracja poczty")
         self.create_email_config_tab()
         
-        # Zakładka 2: Wyszukiwanie NIP
+        # Zakładka 2: Wyszukiwanie NIP (with inner notebook for Wyniki and Znalezione)
         self.search_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.search_frame, text="Wyszukiwanie NIP")
         self.create_search_tab()
         
-        # Zakładka 3: Znalezione faktury
-        self.found_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.found_frame, text="Znalezione")
-        self.create_found_tab()
-        
-        # Zakładka 4: O programie
+        # Zakładka 3: O programie
         self.about_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.about_frame, text="O programie")
         self.create_about_tab()
@@ -183,17 +178,21 @@ class EmailInvoiceFinderApp:
         self.config_frame.columnconfigure(1, weight=1)
     
     def create_search_tab(self):
-        """Tworzenie zakładki wyszukiwania"""
+        """Tworzenie zakładki wyszukiwania z wewnętrznym notebookiem"""
+        # Top section with search inputs
+        input_frame = ttk.Frame(self.search_frame)
+        input_frame.pack(fill='x', padx=10, pady=10)
+        
         # NIP
-        ttk.Label(self.search_frame, text="Numer NIP:").grid(row=0, column=0, sticky='w', padx=10, pady=5)
-        self.nip_entry = ttk.Entry(self.search_frame, width=40)
-        self.nip_entry.grid(row=0, column=1, sticky='ew', padx=10, pady=5)
+        ttk.Label(input_frame, text="Numer NIP:").grid(row=0, column=0, sticky='w', padx=5, pady=5)
+        self.nip_entry = ttk.Entry(input_frame, width=40)
+        self.nip_entry.grid(row=0, column=1, sticky='ew', padx=5, pady=5)
         
         # Folder wyjściowy
-        ttk.Label(self.search_frame, text="Folder zapisu:").grid(row=1, column=0, sticky='w', padx=10, pady=5)
+        ttk.Label(input_frame, text="Folder zapisu:").grid(row=1, column=0, sticky='w', padx=5, pady=5)
         
-        folder_frame = ttk.Frame(self.search_frame)
-        folder_frame.grid(row=1, column=1, sticky='ew', padx=10, pady=5)
+        folder_frame = ttk.Frame(input_frame)
+        folder_frame.grid(row=1, column=1, sticky='ew', padx=5, pady=5)
         
         self.folder_entry = ttk.Entry(folder_frame, width=30)
         self.folder_entry.pack(side='left', fill='x', expand=True)
@@ -202,8 +201,8 @@ class EmailInvoiceFinderApp:
                   command=self.browse_folder).pack(side='left', padx=5)
         
         # Zakres czasowy
-        range_frame = ttk.LabelFrame(self.search_frame, text="Zakres przeszukiwania", padding=10)
-        range_frame.grid(row=2, column=0, columnspan=2, sticky='ew', padx=10, pady=5)
+        range_frame = ttk.LabelFrame(input_frame, text="Zakres przeszukiwania", padding=10)
+        range_frame.grid(row=2, column=0, columnspan=2, sticky='ew', padx=5, pady=5)
         
         self.range_1m_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(range_frame, text="1 miesiąc", 
@@ -223,12 +222,12 @@ class EmailInvoiceFinderApp:
         
         # Zapisz ustawienia
         self.save_search_config_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(self.search_frame, text="Zapisz ustawienia", 
-                       variable=self.save_search_config_var).grid(row=3, column=0, columnspan=2, padx=10, pady=5)
+        ttk.Checkbutton(input_frame, text="Zapisz ustawienia", 
+                       variable=self.save_search_config_var).grid(row=3, column=0, columnspan=2, padx=5, pady=5)
         
         # Przyciski wyszukiwania
-        button_frame = ttk.Frame(self.search_frame)
-        button_frame.grid(row=4, column=0, columnspan=2, pady=20)
+        button_frame = ttk.Frame(input_frame)
+        button_frame.grid(row=4, column=0, columnspan=2, pady=10)
         
         self.search_button = ttk.Button(button_frame, text="Szukaj faktur", 
                    command=self.start_search_thread)
@@ -239,17 +238,31 @@ class EmailInvoiceFinderApp:
         self.stop_button.pack(side='left', padx=5)
         
         # Pasek postępu
-        self.progress = ttk.Progressbar(self.search_frame, mode='indeterminate')
-        self.progress.grid(row=5, column=0, columnspan=2, sticky='ew', padx=10, pady=5)
+        self.progress = ttk.Progressbar(input_frame, mode='indeterminate')
+        self.progress.grid(row=5, column=0, columnspan=2, sticky='ew', padx=5, pady=5)
         
-        # Wyniki
-        ttk.Label(self.search_frame, text="Wyniki:").grid(row=6, column=0, columnspan=2, sticky='w', padx=10, pady=5)
+        input_frame.columnconfigure(1, weight=1)
         
-        self.results_text = scrolledtext.ScrolledText(self.search_frame, height=20, width=70)
-        self.results_text.grid(row=7, column=0, columnspan=2, sticky='nsew', padx=10, pady=5)
+        # Inner notebook for Wyniki and Znalezione tabs
+        self.search_inner_notebook = ttk.Notebook(self.search_frame)
+        self.search_inner_notebook.pack(fill='both', expand=True, padx=10, pady=(0, 10))
         
-        self.search_frame.columnconfigure(1, weight=1)
-        self.search_frame.rowconfigure(7, weight=1)
+        # Tab 1: Wyniki (logs/progress)
+        self.results_frame = ttk.Frame(self.search_inner_notebook)
+        self.search_inner_notebook.add(self.results_frame, text="Wyniki")
+        
+        self.results_text = scrolledtext.ScrolledText(self.results_frame, height=15, width=70)
+        self.results_text.pack(fill='both', expand=True, padx=5, pady=5)
+        
+        # Tab 2: Znalezione (live list of found files)
+        self.found_live_frame = ttk.Frame(self.search_inner_notebook)
+        self.search_inner_notebook.add(self.found_live_frame, text="Znalezione")
+        
+        self.found_live_listbox = tk.Listbox(self.found_live_frame)
+        scrollbar = ttk.Scrollbar(self.found_live_frame, orient='vertical', command=self.found_live_listbox.yview)
+        self.found_live_listbox.configure(yscrollcommand=scrollbar.set)
+        self.found_live_listbox.pack(side='left', fill='both', expand=True, padx=5, pady=5)
+        scrollbar.pack(side='right', fill='y', pady=5)
     
     def create_found_tab(self):
         """Tworzenie zakładki Znalezione faktury"""
@@ -674,22 +687,37 @@ class EmailInvoiceFinderApp:
     
     def safe_log(self, message):
         """Thread-safe logging to queue"""
-        self.log_queue.put(message)
+        self.log_queue.put({'type': 'log', 'message': message})
     
     def _poll_log_queue(self):
-        """Poll log queue and update GUI - called periodically via root.after"""
+        """Poll result queue and update GUI - called periodically via root.after
+        
+        Handles both log messages and found file notifications.
+        """
         try:
             while True:
-                message = self.log_queue.get_nowait()
-                self.results_text.insert(tk.END, message + "\n")
-                self.results_text.see(tk.END)
-                self.root.update_idletasks()
+                item = self.log_queue.get_nowait()
+                
+                if item.get('type') == 'log':
+                    # Log message - add to results text
+                    message = item.get('message', '')
+                    self.results_text.insert(tk.END, message + "\n")
+                    self.results_text.see(tk.END)
+                    self.root.update_idletasks()
+                    
+                elif item.get('type') == 'found':
+                    # Found file - add to live listbox
+                    path = item.get('path') or item.get('name') or str(item)
+                    self.found_live_listbox.insert('end', path)
+                    self.found_live_listbox.see('end')
+                    self.root.update_idletasks()
+                    
         except queue.Empty:
             pass
         
         # Schedule next poll if search is running
         if self.search_thread and self.search_thread.is_alive():
-            self.root.after(100, self._poll_log_queue)
+            self.root.after(200, self._poll_log_queue)  # 200ms polling interval
     
     def start_search_thread(self):
         """Start search in a separate thread"""
@@ -731,6 +759,7 @@ class EmailInvoiceFinderApp:
         
         # Clear results and prepare UI
         self.results_text.delete(1.0, tk.END)
+        self.found_live_listbox.delete(0, tk.END)  # Clear live found list
         self.stop_event.clear()
         
         # Update button states
@@ -1083,6 +1112,13 @@ class EmailInvoiceFinderApp:
                                             filename=os.path.basename(output_path),
                                             file_path=output_path
                                         )
+                                        
+                                        # Push found file to queue for live display
+                                        self.log_queue.put({
+                                            'type': 'found',
+                                            'path': output_path,
+                                            'filename': os.path.basename(output_path)
+                                        })
                                         
                                         self.safe_log(f"✓ Znaleziono: {filename} (z: {subject})")
                                 
