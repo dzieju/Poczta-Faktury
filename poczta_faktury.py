@@ -25,13 +25,22 @@ import queue
 # Plik konfiguracyjny
 CONFIG_FILE = Path.home() / '.poczta_faktury_config.json'
 
+# Plik z wersją aplikacji
+VERSION_FILE = Path(__file__).parent / 'version.txt'
+
 
 class EmailInvoiceFinderApp:
     """Główna aplikacja do wyszukiwania faktur"""
     
     def __init__(self, root):
         self.root = root
-        self.root.title("Poczta Faktury - Wyszukiwanie faktur po NIP")
+        
+        # Wczytaj wersję aplikacji
+        self.version = self._load_version()
+        
+        # Ustaw tytuł okna z wersją
+        self._update_window_title()
+        
         self.root.geometry("800x600")
         
         # Konfiguracja email
@@ -52,7 +61,8 @@ class EmailInvoiceFinderApp:
             'save_search_settings': False,
             'range_1m': False,
             'range_3m': False,
-            'range_6m': False
+            'range_6m': False,
+            'range_week': False
         }
         
         # Threading controls for non-blocking search
@@ -64,6 +74,9 @@ class EmailInvoiceFinderApp:
         self.load_config()
         
         self.create_widgets()
+        
+        # Uruchom watcher pliku wersji
+        self.root.after(5000, self._watch_version_file)
     
     def create_widgets(self):
         """Tworzenie interfejsu użytkownika"""
@@ -80,6 +93,11 @@ class EmailInvoiceFinderApp:
         self.search_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.search_frame, text="Wyszukiwanie NIP")
         self.create_search_tab()
+        
+        # Zakładka 3: O programie
+        self.about_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.about_frame, text="O programie")
+        self.create_about_tab()
         
         # Zastosuj wczytaną konfigurację do UI
         self._apply_loaded_config_to_ui()
@@ -180,6 +198,10 @@ class EmailInvoiceFinderApp:
         ttk.Checkbutton(range_frame, text="6 miesięcy", 
                        variable=self.range_6m_var).pack(side='left', padx=5)
         
+        self.range_week_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(range_frame, text="Ostatni tydzień", 
+                       variable=self.range_week_var).pack(side='left', padx=5)
+        
         # Zapisz ustawienia
         self.save_search_config_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(self.search_frame, text="Zapisz ustawienia", 
@@ -210,6 +232,77 @@ class EmailInvoiceFinderApp:
         self.search_frame.columnconfigure(1, weight=1)
         self.search_frame.rowconfigure(7, weight=1)
     
+    def create_about_tab(self):
+        """Tworzenie zakładki O programie"""
+        # Ramka centralna
+        main_frame = ttk.Frame(self.about_frame)
+        main_frame.pack(expand=True, fill='both', padx=20, pady=20)
+        
+        # Tytuł
+        title_label = ttk.Label(main_frame, text="Poczta Faktury", font=('Arial', 20, 'bold'))
+        title_label.pack(pady=(0, 10))
+        
+        # Wersja
+        version_label = ttk.Label(main_frame, text=f"Wersja: {self.version}", font=('Arial', 12))
+        version_label.pack(pady=(0, 20))
+        
+        # Separator
+        ttk.Separator(main_frame, orient='horizontal').pack(fill='x', pady=10)
+        
+        # Informacje kontaktowe
+        contact_frame = ttk.LabelFrame(main_frame, text="Kontakt", padding=20)
+        contact_frame.pack(fill='both', expand=True, pady=10)
+        
+        contact_info = [
+            ("Autor:", "Grzegorz Ciekot"),
+            ("Telefon:", "512 623 706  lub  34 363 2868"),
+            ("E-mail:", "grzegorz.ciekot@woox.pl"),
+            ("Strona:", "woox.pl")
+        ]
+        
+        for i, (label, value) in enumerate(contact_info):
+            label_widget = ttk.Label(contact_frame, text=label, font=('Arial', 10, 'bold'))
+            label_widget.grid(row=i, column=0, sticky='w', pady=5, padx=(0, 10))
+            
+            value_widget = ttk.Label(contact_frame, text=value, font=('Arial', 10))
+            value_widget.grid(row=i, column=1, sticky='w', pady=5)
+        
+        # Opis
+        ttk.Separator(main_frame, orient='horizontal').pack(fill='x', pady=10)
+        
+        desc_label = ttk.Label(main_frame, 
+                               text="Aplikacja do wyszukiwania faktur\nw załącznikach email po numerze NIP",
+                               font=('Arial', 10),
+                               justify='center')
+        desc_label.pack(pady=10)
+    
+    def _load_version(self):
+        """Wczytywanie wersji aplikacji z pliku version.txt"""
+        try:
+            if VERSION_FILE.exists():
+                version = VERSION_FILE.read_text().strip()
+                # Sprawdź czy wersja ma poprawny format (x.y.z)
+                import re
+                if re.match(r'^\d+\.\d+\.\d+$', version):
+                    return version
+        except Exception:
+            pass
+        return "1.0.0"
+    
+    def _update_window_title(self):
+        """Aktualizacja tytułu okna z numerem wersji"""
+        self.root.title(f"Poczta Faktury - Wyszukiwanie faktur po NIP  ver. {self.version}")
+    
+    def _watch_version_file(self):
+        """Monitorowanie zmian w pliku version.txt i aktualizacja tytułu"""
+        new_version = self._load_version()
+        if new_version != self.version:
+            self.version = new_version
+            self._update_window_title()
+        
+        # Zaplanuj kolejne sprawdzenie za 5 sekund
+        self.root.after(5000, self._watch_version_file)
+    
     def toggle_show_password(self):
         """Przełączanie widoczności hasła"""
         if self.show_password_var.get():
@@ -235,7 +328,8 @@ class EmailInvoiceFinderApp:
                 'save_search_settings': self.save_search_config_var.get(),
                 'range_1m': self.range_1m_var.get() if self.save_search_config_var.get() else False,
                 'range_3m': self.range_3m_var.get() if self.save_search_config_var.get() else False,
-                'range_6m': self.range_6m_var.get() if self.save_search_config_var.get() else False
+                'range_6m': self.range_6m_var.get() if self.save_search_config_var.get() else False,
+                'range_week': self.range_week_var.get() if self.save_search_config_var.get() else False
             }
         }
         
@@ -304,6 +398,8 @@ class EmailInvoiceFinderApp:
             self.range_3m_var.set(self.search_config['range_3m'])
         if 'range_6m' in self.search_config:
             self.range_6m_var.set(self.search_config['range_6m'])
+        if 'range_week' in self.search_config:
+            self.range_week_var.set(self.search_config['range_week'])
     
     def test_connection(self):
         """Testowanie połączenia z serwerem email"""
@@ -422,7 +518,8 @@ class EmailInvoiceFinderApp:
             'save_search_settings': self.save_search_config_var.get(),
             'range_1m': self.range_1m_var.get(),
             'range_3m': self.range_3m_var.get(),
-            'range_6m': self.range_6m_var.get()
+            'range_6m': self.range_6m_var.get(),
+            'range_week': self.range_week_var.get()
         }
         
         # Save config if checkbox is checked
@@ -549,7 +646,7 @@ class EmailInvoiceFinderApp:
     def _get_cutoff_datetime(self):
         """Obliczanie daty granicznej na podstawie zaznaczonych zakresów
         
-        Uwaga: Jeśli zaznaczono wiele zakresów, używany jest najdłuższy (6m > 3m > 1m).
+        Uwaga: Jeśli zaznaczono wiele zakresów, używany jest najdłuższy (6m > 3m > 1m > 1w).
         """
         # Znajdź najdalszy zaznaczony zakres
         max_days = 0
@@ -559,6 +656,8 @@ class EmailInvoiceFinderApp:
             max_days = 90   # 3 miesiące ≈ 90 dni
         elif self.range_1m_var.get():
             max_days = 30   # 1 miesiąc ≈ 30 dni
+        elif self.range_week_var.get():
+            max_days = 7    # 1 tydzień = 7 dni
         
         if max_days > 0:
             cutoff_dt = datetime.now() - timedelta(days=max_days)
@@ -881,7 +980,8 @@ class EmailInvoiceFinderApp:
             'save_search_settings': self.save_search_config_var.get(),
             'range_1m': self.range_1m_var.get(),
             'range_3m': self.range_3m_var.get(),
-            'range_6m': self.range_6m_var.get()
+            'range_6m': self.range_6m_var.get(),
+            'range_week': self.range_week_var.get()
         }
         
         # Zapisz konfigurację jeśli zaznaczono checkbox

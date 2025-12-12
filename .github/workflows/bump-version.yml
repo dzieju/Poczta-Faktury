@@ -1,0 +1,63 @@
+name: Bump Version
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      
+      - name: Get current version
+        id: get_old_version
+        run: |
+          if [ -f version.txt ]; then
+            OLD_VERSION=$(cat version.txt)
+          else
+            OLD_VERSION="none"
+          fi
+          echo "old_version=$OLD_VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Increment version
+        id: increment
+        run: |
+          NEW_VERSION=$(python scripts/increment_version.py version.txt)
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Check if version changed
+        id: check_change
+        run: |
+          if [ "${{ steps.get_old_version.outputs.old_version }}" != "${{ steps.increment.outputs.new_version }}" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Commit and push version bump
+        if: steps.check_change.outputs.changed == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # Check if there are changes to commit
+          if git diff --quiet version.txt; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          
+          git add version.txt
+          git commit -m "Bump version to ${{ steps.increment.outputs.new_version }} [skip ci]" || exit 0
+          git push || echo "Nothing to push or push failed"
