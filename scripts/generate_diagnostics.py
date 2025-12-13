@@ -247,7 +247,7 @@ class DiagnosticsGenerator:
                     
                     # Copy last 1000 lines to output
                     try:
-                        with open(log_file, 'r', errors='ignore') as f:
+                        with open(log_file, 'r', errors='replace') as f:
                             lines = f.readlines()
                             last_lines = lines[-1000:] if len(lines) > 1000 else lines
                             
@@ -258,7 +258,7 @@ class DiagnosticsGenerator:
                             output_file = logs_output_dir / f"{log_file.stem}_{counter}{log_file.suffix}"
                             counter += 1
                             
-                        with open(output_file, 'w', errors='ignore') as f:
+                        with open(output_file, 'w', errors='replace') as f:
                             f.writelines(last_lines)
                             
                         self.log(f"  Copied last {len(last_lines)} lines to {output_file.name}")
@@ -272,7 +272,7 @@ class DiagnosticsGenerator:
                     self.log(f"Found: {txt_file}")
                     
                     try:
-                        with open(txt_file, 'r', errors='ignore') as f:
+                        with open(txt_file, 'r', errors='replace') as f:
                             lines = f.readlines()
                             last_lines = lines[-1000:] if len(lines) > 1000 else lines
                             
@@ -282,7 +282,7 @@ class DiagnosticsGenerator:
                             output_file = logs_output_dir / f"{txt_file.stem}_{counter}{txt_file.suffix}"
                             counter += 1
                             
-                        with open(output_file, 'w', errors='ignore') as f:
+                        with open(output_file, 'w', errors='replace') as f:
                             f.writelines(last_lines)
                             
                         self.log(f"  Copied last {len(last_lines)} lines to {output_file.name}")
@@ -312,12 +312,18 @@ class DiagnosticsGenerator:
                 if 'email' in config:
                     # Partially redact email
                     email = config['email']
-                    if '@' in email:
-                        username, domain = email.split('@', 1)
-                        if len(username) >= 3:
-                            config['email'] = f"{username[:2]}***@{domain}"
+                    if '@' in email and not email.startswith('@'):
+                        parts = email.split('@')
+                        if len(parts) == 2:  # Valid email format
+                            username, domain = parts
+                            if len(username) >= 3:
+                                config['email'] = f"{username[:2]}***@{domain}"
+                            else:
+                                config['email'] = f"***@{domain}"
                         else:
-                            config['email'] = f"***@{domain}"
+                            config['email'] = "***REDACTED***"
+                    else:
+                        config['email'] = "***REDACTED***"
                 
                 self.log("\n--- Sanitized configuration ---")
                 self.log(json.dumps(config, indent=2))
