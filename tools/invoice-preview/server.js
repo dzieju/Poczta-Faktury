@@ -22,6 +22,7 @@ const INVOICES_DIR = process.env.INVOICES_DIR ? path.resolve(process.env.INVOICE
 // Allowed extensions to show in the preview UI
 const ALLOWED_EXT = new Set(['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.txt']);
 
+// Utility function for filename sanitization (reserved for future use)
 function sanitizeFilename(name) {
   // remove any path segments
   return path.basename(name);
@@ -61,7 +62,9 @@ async function listInvoices() {
 // Serve a tiny frontend
 app.use('/invoices/static', express.static(path.join(__dirname, 'public')));
 
-// Static serve the invoice files (safe: uses express static with root folder)
+// Static serve the invoice files
+// Security: Express.static provides built-in path traversal protection
+// Additional protections: dotfiles denied, no directory listing
 if (fsSync.existsSync(INVOICES_DIR)) {
   app.use('/invoices/files', express.static(INVOICES_DIR, {
     index: false,
@@ -80,7 +83,7 @@ if (fsSync.existsSync(INVOICES_DIR)) {
 // API: list invoices
 app.get('/api/invoices', async (req, res) => {
   const data = await listInvoices();
-  if (data.error) return res.status(404).json({ error: data.error });
+  if (data.error) return res.status(500).json({ error: data.error });
   res.json(data.files);
 });
 
