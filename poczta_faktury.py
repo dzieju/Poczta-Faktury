@@ -632,6 +632,14 @@ class EmailInvoiceFinderApp:
         
         # Log the addition for debugging
         self.safe_log(f"Dodano fakturę do listy: {filename}")
+        
+        # Schedule refresh of the found invoices treeview in the GUI thread
+        # This ensures the "Znalezione faktury" tab shows new entries automatically
+        try:
+            self.root.after(0, self.refresh_found_invoices)
+        except Exception:
+            # Silently ignore errors (e.g., if called after window destruction)
+            pass
     
     def refresh_found_invoices(self):
         """Odświeżanie tabeli znalezionych faktur
