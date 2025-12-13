@@ -40,13 +40,18 @@ class DiagnosticsGenerator:
             timeout: Command timeout in seconds
             
         Returns:
-            tuple: (stdout, stderr, return_code)
+            tuple: (stdout, stderr, returncode)
+        
+        Note:
+            shell=True is safe here as all string commands are hardcoded
+            literals with no user input. List commands use shell=False.
         """
         if cwd is None:
             cwd = self.repo_root
             
         try:
             if isinstance(cmd, str):
+                # shell=True is safe: only used with hardcoded command strings
                 result = subprocess.run(
                     cmd,
                     shell=True,

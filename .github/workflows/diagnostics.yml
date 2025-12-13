@@ -39,13 +39,13 @@ jobs:
       
       - name: Create diagnostics archive
         run: |
-          tar -czf diagnostics-$(date +%Y%m%d-%H%M%S).tar.gz -C diagnostics_output .
+          tar -czf diagnostics-archive.tar.gz -C diagnostics_output .
       
       - name: Upload diagnostics artifact
         uses: actions/upload-artifact@v4
         with:
           name: diagnostics-${{ github.sha }}
-          path: diagnostics-*.tar.gz
+          path: diagnostics-archive.tar.gz
           retention-days: 30
       
       - name: Upload raw diagnostics
