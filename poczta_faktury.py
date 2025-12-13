@@ -606,7 +606,7 @@ class EmailInvoiceFinderApp:
                 tmp_file = FOUND_INVOICES_FILE.with_suffix('.tmp')
                 if tmp_file.exists():
                     tmp_file.unlink()
-            except:
+            except (OSError, FileNotFoundError):
                 pass
     
     def add_found_invoice(self, date, sender, subject, filename, file_path):

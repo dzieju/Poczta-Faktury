@@ -148,7 +148,7 @@ def test_invoice_structure():
     try:
         datetime.fromisoformat(invoice['found_timestamp'])
         print(f"  ✓ Timestamp ma prawidłowy format ISO")
-    except:
+    except ValueError:
         print(f"  ✗ Timestamp ma nieprawidłowy format")
         return False
     
