@@ -108,7 +108,12 @@ class EmailInvoiceFinderApp:
         self.notebook.add(self.search_frame, text="Wyszukiwanie NIP")
         self.create_search_tab()
         
-        # Zakładka 3: O programie
+        # Zakładka 3: Znalezione faktury (history of all found invoices)
+        self.found_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.found_frame, text="Znalezione faktury")
+        self.create_found_tab()
+        
+        # Zakładka 4: O programie
         self.about_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.about_frame, text="O programie")
         self.create_about_tab()
@@ -307,8 +312,9 @@ class EmailInvoiceFinderApp:
         # Podwójne kliknięcie otwiera plik
         self.found_tree.bind('<Double-1>', self.on_found_invoice_double_click)
         
-        # Załaduj dane do tabeli
-        self.refresh_found_invoices()
+        # Załaduj dane do tabeli - pokazuje persisted invoices from FOUND_INVOICES_FILE
+        # This ensures that data saved from previous sessions is visible on app startup
+        self.root.after(0, self.refresh_found_invoices)
     
     def create_about_tab(self):
         """Tworzenie zakładki O programie"""
@@ -551,28 +557,68 @@ class EmailInvoiceFinderApp:
             self.folder_entry.insert(0, folder)
     
     def load_found_invoices(self):
-        """Wczytywanie listy znalezionych faktur z pliku"""
+        """Wczytywanie listy znalezionych faktur z pliku
+        
+        Validates that the loaded data is a list and handles JSON corruption gracefully.
+        """
         if not FOUND_INVOICES_FILE.exists():
             self.found_invoices = []
             return
         
         try:
             with open(FOUND_INVOICES_FILE, 'r', encoding='utf-8') as f:
-                self.found_invoices = json.load(f)
+                data = json.load(f)
+                
+            # Validate that data is a list
+            if not isinstance(data, list):
+                print(f"Błąd: {FOUND_INVOICES_FILE} zawiera nieprawidłowe dane (nie jest listą). Resetuję dane.")
+                self.found_invoices = []
+                return
+            
+            self.found_invoices = data
+            print(f"Wczytano {len(self.found_invoices)} znalezionych faktur z pliku")
+            
+        except json.JSONDecodeError as e:
+            print(f"Błąd parsowania JSON z {FOUND_INVOICES_FILE}: {e}. Resetuję dane.")
+            self.found_invoices = []
         except Exception as e:
-            print(f"Błąd wczytywania znalezionych faktur: {e}")
+            print(f"Błąd wczytywania znalezionych faktur z {FOUND_INVOICES_FILE}: {e}")
             self.found_invoices = []
     
     def save_found_invoices(self):
-        """Zapisywanie listy znalezionych faktur do pliku"""
+        """Zapisywanie listy znalezionych faktur do pliku
+        
+        Uses atomic write (temp file + os.replace) to prevent corruption if write is interrupted.
+        """
         try:
-            with open(FOUND_INVOICES_FILE, 'w', encoding='utf-8') as f:
+            # Write to temporary file first (atomic write pattern)
+            tmp_file = FOUND_INVOICES_FILE.with_suffix('.tmp')
+            with open(tmp_file, 'w', encoding='utf-8') as f:
                 json.dump(self.found_invoices, f, indent=2, ensure_ascii=False)
+            
+            # Atomically replace the old file with the new one
+            os.replace(tmp_file, FOUND_INVOICES_FILE)
+            
         except Exception as e:
-            print(f"Błąd zapisu znalezionych faktur: {e}")
+            print(f"Błąd zapisu znalezionych faktur do {FOUND_INVOICES_FILE}: {e}")
+            # Try to clean up temp file if it exists
+            try:
+                tmp_file = FOUND_INVOICES_FILE.with_suffix('.tmp')
+                if tmp_file.exists():
+                    tmp_file.unlink()
+            except:
+                pass
     
     def add_found_invoice(self, date, sender, subject, filename, file_path):
-        """Dodawanie nowej faktury do listy znalezionych"""
+        """Dodawanie nowej faktury do listy znalezionych
+        
+        Ensures self.found_invoices is initialized, appends the invoice with timestamp,
+        saves immediately, and logs the operation for debugging.
+        """
+        # Ensure found_invoices is initialized (defensive programming)
+        if not hasattr(self, 'found_invoices') or self.found_invoices is None:
+            self.found_invoices = []
+        
         invoice = {
             'date': date,
             'sender': sender,
@@ -583,21 +629,46 @@ class EmailInvoiceFinderApp:
         }
         self.found_invoices.append(invoice)
         self.save_found_invoices()
+        
+        # Log the addition for debugging
+        self.safe_log(f"Dodano fakturę do listy: {filename}")
     
     def refresh_found_invoices(self):
-        """Odświeżanie tabeli znalezionych faktur"""
-        # Wyczyść tabelę
-        for item in self.found_tree.get_children():
-            self.found_tree.delete(item)
+        """Odświeżanie tabeli znalezionych faktur
         
-        # Dodaj faktury do tabeli (store file_path in tags for efficient access)
-        for invoice in self.found_invoices:
-            self.found_tree.insert('', 'end', values=(
-                invoice.get('date', ''),
-                invoice.get('sender', ''),
-                invoice.get('subject', ''),
-                invoice.get('filename', '')
-            ), tags=(invoice.get('file_path', ''),))
+        Handles the case when self.found_tree widget doesn't exist yet by scheduling a retry.
+        Wraps per-row insertion in try/except to avoid one bad invoice preventing others from showing.
+        Logs errors for debugging.
+        """
+        # Check if the widget exists yet (may be called before create_found_tab completes)
+        if not hasattr(self, 'found_tree'):
+            # Widget not yet created - schedule a retry
+            print("refresh_found_invoices wywoływane za wcześnie - zaplanowano ponowienie")
+            self.root.after(100, self.refresh_found_invoices)
+            return
+        
+        try:
+            # Wyczyść tabelę
+            for item in self.found_tree.get_children():
+                self.found_tree.delete(item)
+            
+            # Dodaj faktury do tabeli (store file_path in tags for efficient access)
+            for invoice in self.found_invoices:
+                try:
+                    self.found_tree.insert('', 'end', values=(
+                        invoice.get('date', ''),
+                        invoice.get('sender', ''),
+                        invoice.get('subject', ''),
+                        invoice.get('filename', '')
+                    ), tags=(invoice.get('file_path', ''),))
+                except Exception as e:
+                    # Log error but continue with other invoices
+                    print(f"Błąd podczas dodawania faktury do tabeli: {invoice.get('filename', 'unknown')}: {e}")
+            
+            print(f"Odświeżono tabelę faktur: {len(self.found_invoices)} pozycji")
+            
+        except Exception as e:
+            print(f"Błąd podczas odświeżania tabeli znalezionych faktur: {e}")
     
     def sort_found_column(self, col, reverse):
         """Sortowanie kolumny w tabeli znalezionych faktur"""
