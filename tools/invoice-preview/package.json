@@ -1,0 +1,17 @@
+{
+  "name": "invoice-preview",
+  "version": "0.1.0",
+  "description": "Simple microservice to list and preview invoice files from a folder",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "NODE_ENV=development node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mime-types": "^2.1.35"
+  },
+  "engines": {
+    "node": ">=14"
+  }
+}

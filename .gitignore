@@ -44,3 +44,7 @@ Thumbs.db
 # Diagnostics output
 diagnostics_output/
 diagnostics-*.tar.gz
+
+# Node.js (for tools/invoice-preview)
+tools/invoice-preview/node_modules/
+tools/invoice-preview/package-lock.json
