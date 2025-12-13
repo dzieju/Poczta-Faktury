@@ -39,13 +39,15 @@ jobs:
       
       - name: Create diagnostics archive
         run: |
-          tar -czf diagnostics-archive.tar.gz -C diagnostics_output .
+          cd diagnostics_output
+          zip -r ../diagnostics.zip .
+          cd ..
       
       - name: Upload diagnostics artifact
         uses: actions/upload-artifact@v4
         with:
           name: diagnostics-${{ github.sha }}
-          path: diagnostics-archive.tar.gz
+          path: diagnostics.zip
           retention-days: 30
       
       - name: Upload raw diagnostics
@@ -64,7 +66,7 @@ jobs:
           echo "**Generated at:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Artifacts:**" >> $GITHUB_STEP_SUMMARY
-          echo "- Compressed archive: \`diagnostics-*.tar.gz\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Compressed archive: \`diagnostics.zip\`" >> $GITHUB_STEP_SUMMARY
           echo "- Raw output: \`diagnostics_output/\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**How to access:**" >> $GITHUB_STEP_SUMMARY
