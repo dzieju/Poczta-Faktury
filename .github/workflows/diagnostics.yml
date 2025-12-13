@@ -37,9 +37,7 @@ jobs:
       
       - name: Create diagnostics archive
         run: |
-          cd diagnostics_output
-          tar -czf ../diagnostics-$(date +%Y%m%d-%H%M%S).tar.gz .
-          cd ..
+          tar -czf diagnostics-$(date +%Y%m%d-%H%M%S).tar.gz -C diagnostics_output .
       
       - name: Upload diagnostics artifact
         uses: actions/upload-artifact@v4

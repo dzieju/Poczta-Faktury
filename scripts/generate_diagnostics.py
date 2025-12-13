@@ -9,7 +9,6 @@ import sys
 import subprocess
 import platform
 import json
-import shutil
 from datetime import datetime
 from pathlib import Path
 
@@ -315,7 +314,10 @@ class DiagnosticsGenerator:
                     email = config['email']
                     if '@' in email:
                         username, domain = email.split('@', 1)
-                        config['email'] = f"{username[:2]}***@{domain}"
+                        if len(username) >= 3:
+                            config['email'] = f"{username[:2]}***@{domain}"
+                        else:
+                            config['email'] = f"***@{domain}"
                 
                 self.log("\n--- Sanitized configuration ---")
                 self.log(json.dumps(config, indent=2))
@@ -327,9 +329,12 @@ class DiagnosticsGenerator:
         # Application version
         version_file = self.repo_root / "version.txt"
         if version_file.exists():
-            with open(version_file, 'r') as f:
-                version = f.read().strip()
-            self.log(f"\nApplication version: {version}")
+            try:
+                with open(version_file, 'r') as f:
+                    version = f.read().strip()
+                self.log(f"\nApplication version: {version}")
+            except Exception as e:
+                self.log(f"\nError reading version file: {e}")
     
     def collect_file_structure(self):
         """Collect repository file structure."""
