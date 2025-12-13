@@ -16,15 +16,17 @@ from pathlib import Path
 class DiagnosticsGenerator:
     """Generate comprehensive diagnostics for Poczta-Faktury application."""
     
-    def __init__(self, output_dir="diagnostics_output"):
+    def __init__(self, output_dir="diagnostics_output", max_log_lines=1000):
         """Initialize diagnostics generator.
         
         Args:
             output_dir: Directory where diagnostics will be saved
+            max_log_lines: Maximum number of lines to copy from each log file
         """
         self.output_dir = Path(output_dir)
         self.repo_root = Path(__file__).parent.parent
         self.diagnostics = []
+        self.max_log_lines = max_log_lines
         
     def log(self, message):
         """Log a message to diagnostics output."""
@@ -254,7 +256,7 @@ class DiagnosticsGenerator:
                     try:
                         with open(log_file, 'r', errors='replace') as f:
                             lines = f.readlines()
-                            last_lines = lines[-1000:] if len(lines) > 1000 else lines
+                            last_lines = lines[-self.max_log_lines:] if len(lines) > self.max_log_lines else lines
                             
                         output_file = logs_output_dir / f"{log_file.name}"
                         # Handle duplicate names
@@ -279,7 +281,7 @@ class DiagnosticsGenerator:
                     try:
                         with open(txt_file, 'r', errors='replace') as f:
                             lines = f.readlines()
-                            last_lines = lines[-1000:] if len(lines) > 1000 else lines
+                            last_lines = lines[-self.max_log_lines:] if len(lines) > self.max_log_lines else lines
                             
                         output_file = logs_output_dir / f"{txt_file.name}"
                         counter = 1
@@ -409,14 +411,24 @@ def main():
         default="diagnostics_output",
         help="Output directory for diagnostics (default: diagnostics_output)"
     )
+    parser.add_argument(
+        "--max-lines",
+        type=int,
+        default=1000,
+        help="Maximum number of lines to copy from each log file (default: 1000)"
+    )
     
     args = parser.parse_args()
     
     print(f"Generating diagnostics...")
     print(f"Output directory: {args.output_dir}")
+    print(f"Max log lines: {args.max_lines}")
     print()
     
-    generator = DiagnosticsGenerator(output_dir=args.output_dir)
+    generator = DiagnosticsGenerator(
+        output_dir=args.output_dir,
+        max_log_lines=args.max_lines
+    )
     diagnostics_file = generator.generate()
     
     print(f"\n✓ Diagnostics generation complete!")

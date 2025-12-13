@@ -19,6 +19,9 @@ python scripts/generate_diagnostics.py
 
 # Generate diagnostics to custom directory
 python scripts/generate_diagnostics.py --output-dir /path/to/output
+
+# Limit log file lines (default: 1000)
+python scripts/generate_diagnostics.py --max-lines 500
 ```
 
 **What it collects:**
@@ -57,7 +60,7 @@ python scripts/generate_diagnostics.py --output-dir /path/to/output
      - storage/logs/
      - var/log/
      - ~/.poczta_faktury_logs/
-   - Copies last 1000 lines from each log file to output/logs/
+   - Copies last N lines from each log file to output/logs/ (configurable with --max-lines, default: 1000)
 
 **Output:**
 
@@ -76,7 +79,7 @@ You can also generate diagnostics via GitHub Actions:
 5. Download the generated artifacts after the workflow completes
 
 The workflow creates two artifacts:
-- `diagnostics-[sha].tar.gz` - Compressed archive of all diagnostics
+- `diagnostics.zip` - Compressed archive of all diagnostics
 - `diagnostics-raw-[sha]` - Raw diagnostics output directory
 
 **Example:**
