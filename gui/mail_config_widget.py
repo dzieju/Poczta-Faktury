@@ -63,6 +63,18 @@ class MailConfigWidget(ttk.Frame):
         # Start processing queue
         self._process_result_queue()
     
+    @staticmethod
+    def _validate_port(port_str, default):
+        """Validate and return a port number, or default if invalid"""
+        try:
+            if port_str and port_str.isdigit():
+                port = int(port_str)
+                if 1 <= port <= 65535:
+                    return port
+        except (ValueError, AttributeError):
+            pass
+        return default
+    
     def create_widgets(self):
         """Create the UI widgets"""
         # Main container with two columns
@@ -451,16 +463,16 @@ class MailConfigWidget(ttk.Frame):
                 "exchange_server": self.exchange_server_var.get().strip(),
                 "domain": self.domain_var.get().strip(),
                 "imap_server": self.imap_server_var.get().strip(),
-                "imap_port": int(self.imap_port_var.get()) if self.imap_port_var.get().isdigit() else 993,
+                "imap_port": self._validate_port(self.imap_port_var.get(), 993),
                 "imap_ssl": self.imap_ssl_var.get(),
                 "smtp_server": self.smtp_server_var.get().strip(),
-                "smtp_port": int(self.smtp_port_var.get()) if self.smtp_port_var.get().isdigit() else 587,
+                "smtp_port": self._validate_port(self.smtp_port_var.get(), 587),
                 "smtp_ssl": self.smtp_ssl_var.get(),
                 "pop3_server": self.pop3_server_var.get().strip(),
-                "pop3_port": int(self.pop3_port_var.get()) if self.pop3_port_var.get().isdigit() else 995,
+                "pop3_port": self._validate_port(self.pop3_port_var.get(), 995),
                 "pop3_ssl": self.pop3_ssl_var.get(),
                 "smtp_server_pop3": self.smtp_server_pop3_var.get().strip(),
-                "smtp_port_pop3": int(self.smtp_port_pop3_var.get()) if self.smtp_port_pop3_var.get().isdigit() else 587,
+                "smtp_port_pop3": self._validate_port(self.smtp_port_pop3_var.get(), 587),
                 "smtp_ssl_pop3": self.smtp_ssl_pop3_var.get()
             })
             
@@ -609,16 +621,16 @@ class MailConfigWidget(ttk.Frame):
                 "exchange_server": self.exchange_server_var.get().strip(),
                 "domain": self.domain_var.get().strip(),
                 "imap_server": self.imap_server_var.get().strip(),
-                "imap_port": int(self.imap_port_var.get()) if self.imap_port_var.get().isdigit() else 993,
+                "imap_port": self._validate_port(self.imap_port_var.get(), 993),
                 "imap_ssl": self.imap_ssl_var.get(),
                 "smtp_server": self.smtp_server_var.get().strip(),
-                "smtp_port": int(self.smtp_port_var.get()) if self.smtp_port_var.get().isdigit() else 587,
+                "smtp_port": self._validate_port(self.smtp_port_var.get(), 587),
                 "smtp_ssl": self.smtp_ssl_var.get(),
                 "pop3_server": self.pop3_server_var.get().strip(),
-                "pop3_port": int(self.pop3_port_var.get()) if self.pop3_port_var.get().isdigit() else 995,
+                "pop3_port": self._validate_port(self.pop3_port_var.get(), 995),
                 "pop3_ssl": self.pop3_ssl_var.get(),
                 "smtp_server_pop3": self.smtp_server_pop3_var.get().strip(),
-                "smtp_port_pop3": int(self.smtp_port_pop3_var.get()) if self.smtp_port_pop3_var.get().isdigit() else 587,
+                "smtp_port_pop3": self._validate_port(self.smtp_port_pop3_var.get(), 587),
                 "smtp_ssl_pop3": self.smtp_ssl_pop3_var.get()
             }
             

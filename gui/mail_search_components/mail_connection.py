@@ -53,6 +53,11 @@ CONFIG_FILE = str(Path.home() / "mail_config.json")
 # Legacy Exchange config file for backward compatibility
 LEGACY_CONFIG_FILE = str(Path.home() / "exchange_config.json")
 
+# Average message size estimate for folder size calculations (in bytes)
+# This is a reasonable middle ground between plain text (~10KB) and 
+# messages with attachments (~300KB+)
+ESTIMATED_MESSAGE_SIZE = 150 * 1024  # 150KB
+
 
 class FolderNameMapper:
     """Handles bidirectional mapping between Polish display names and server folder names"""
@@ -330,10 +335,8 @@ class MailConnection:
                             message_count = status.get(b'MESSAGES', 0)
                             
                             # Approximate size (IMAP doesn't provide total size easily)
-                            # Estimate: 150KB per message on average (accounts for attachments)
-                            # This is a reasonable middle ground between plain text (~10KB) and 
-                            # messages with attachments (~300KB+)
-                            estimated_size = message_count * 150 * 1024
+                            # Use estimated average message size
+                            estimated_size = message_count * ESTIMATED_MESSAGE_SIZE
                             
                         except Exception as status_error:
                             log(f"[MAIL CONNECTION] Could not get status for folder '{folder_name}': {status_error}")
@@ -865,6 +868,9 @@ class MailConnection:
             # List all folders on the server
             folders = imap.list_folders()
             
+            # Pre-compute the normalized folder path to avoid repeated calls in loop
+            folder_path_normalized = FolderNameMapper.polish_to_server(folder_path)
+            
             folder_names = []
             for folder_info in folders:
                 if folder_info:
@@ -881,7 +887,7 @@ class MailConnection:
                         folder_name = folder_name.strip()
                         
                         # Skip empty names and the current folder path to avoid self-exclusion  
-                        if folder_name and folder_name not in [folder_path, FolderNameMapper.polish_to_server(folder_path)]:
+                        if folder_name and folder_name not in [folder_path, folder_path_normalized]:
                             folder_names.append(folder_name)
                             log(f"[MAIL CONNECTION] Added folder: {folder_name}")
                         
