@@ -13,6 +13,7 @@ Layout inspiration: https://github.com/dzieju/dzieju-app2/blob/fcee6b91bf240d17c
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
 from datetime import datetime
+import os
 
 # Import logger from our local gui module
 try:
@@ -253,8 +254,19 @@ class ZnalezioneWindow:
         # Clear current results
         self.clear_results()
         
-        # In a full implementation, this would call the EmailSearchEngine
-        # For now, show a placeholder message
+        # Try loading from output_folder first (fast immediate UX)
+        output_folder = self.search_criteria.get('output_folder')
+        if output_folder:
+            self.load_results_from_folder(output_folder)
+            return
+        
+        # Fall back to full search or placeholder
+        connection = self.search_criteria.get('connection')
+        if search_messages and connection:
+            # leave placeholder or implement full search later
+            self.show_placeholder_results()
+            return
+        
         self.show_placeholder_results()
     
     def refresh_search(self):
@@ -270,6 +282,31 @@ class ZnalezioneWindow:
             self.tree.delete(item)
         self.snippet_text.delete('1.0', tk.END)
         self.results_label.config(text="Znaleziono: 0 wiadomości")
+    
+    def load_results_from_folder(self, folder_path):
+        """Load PDF files from folder and display them in results table"""
+        self.clear_results()
+        if not folder_path:
+            return
+        # Normalize path for security
+        folder_path = os.path.abspath(folder_path)
+        if not os.path.isdir(folder_path):
+            messagebox.showinfo("Info", f"Folder nie istnieje: {folder_path}")
+            return
+        try:
+            files = [f for f in os.listdir(folder_path) if f.lower().endswith('.pdf')]
+            files.sort()
+            for fname in files:
+                full = os.path.join(folder_path, fname)
+                try:
+                    mtime = datetime.fromtimestamp(os.path.getmtime(full)).strftime('%Y-%m-%d %H:%M')
+                except Exception:
+                    mtime = '-'
+                self.tree.insert('', 'end', values=(mtime, '-', fname, folder_path, '1', 'Zapisano'))
+            self.results_label.config(text=f"Znaleziono: {len(files)} plików")
+        except Exception as e:
+            log(f"Błąd podczas wczytywania folderu wyników: {e}", level="ERROR")
+            messagebox.showerror("Błąd", f"Nie udało się wczytać folderu wyników:\n{str(e)}")
     
     def show_placeholder_results(self):
         """Show placeholder results (for demonstration)"""
