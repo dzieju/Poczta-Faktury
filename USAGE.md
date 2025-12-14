@@ -49,12 +49,6 @@ python main.py
 4. Opcjonalnie wybierz zakres przeszukiwania (1/3/6 miesięcy) aby przeszukiwać tylko nowsze wiadomości
 5. Opcjonalnie zaznacz "Zapisz ustawienia" aby pamiętać preferencje
 6. Kliknij "Szukaj faktur"
-7. Obserwuj postęp wyszukiwania w zakładce "Wyniki" wewnątrz "Wyszukiwanie NIP"
-8. Znalezione pliki pojawiają się na żywo w zakładce "Znalezione" wewnątrz "Wyszukiwanie NIP"
-
-**Uwaga o nowej strukturze**: Zakładka "Wyszukiwanie NIP" zawiera teraz dwie wewnętrzne zakładki:
-- **Wyniki**: Pokazuje logi i postęp wyszukiwania
-- **Znalezione**: Pokazuje listę znalezionych plików w czasie rzeczywistym podczas wyszukiwania
 
 **Uwaga o zakresie przeszukiwania**: Jeśli zaznaczysz jedną lub więcej opcji zakresu czasowego (1 miesiąc, 3 miesiące, 6 miesięcy), aplikacja będzie filtrować i pomijać wiadomości starsze niż wybrany zakres. To przyspiesza wyszukiwanie w dużych skrzynkach pocztowych.
 
@@ -73,15 +67,13 @@ Aplikacja:
 - Przeszuka wszystkie wiadomości email w skrzynce
 - Pobierze załączniki PDF
 - Przeskanuje je w poszukiwaniu podanego numeru NIP
-- Zapisze znalezione faktury w wybranym folderze
-- Wyświetla znalezione pliki **na żywo** w zakładce "Znalezione" w miarę ich wykrywania
-- Po zakończeniu, wszystkie znalezione faktury są również dostępne w oddzielnej zakładce historii
+- Zapisze znalezione faktury w wybranym folderze z prefiksem numeru porządkowego
 
 Przykładowe nazwy zapisanych plików:
 ```
-faktura_VAT_2024_01.pdf
-faktura_proforma.pdf
-paragon_fiskalny_1.pdf  (jeśli plik już istniał)
+1_faktura_VAT_2024_01.pdf
+2_faktura_proforma.pdf
+3_paragon_fiskalny.pdf
 ```
 
 ## Rozwiązywanie problemów / Troubleshooting
@@ -99,51 +91,7 @@ paragon_fiskalny_1.pdf  (jeśli plik już istniał)
 ### Problem: "Nie znaleziono faktur"
 - Upewnij się, że numer NIP jest poprawny
 - Sprawdź czy w skrzynce są wiadomości z załącznikami PDF
-- Sprawdź czy pliki PDF zawierają frazę "fakt" w nazwie (domyślny wzorzec wykrywania)
 - Pamiętaj, że aplikacja przeszukuje tylko załączniki w formacie PDF
-
-## Nowe funkcje
-
-### Zakładka "Znalezione"
-
-Po wykonaniu wyszukiwania, wszystkie znalezione faktury są dostępne w zakładce "Znalezione":
-
-1. **Przeglądanie listy**: Tabela zawiera dane, nadawcę, temat i nazwę pliku
-2. **Sortowanie**: Kliknij na nagłówek kolumny aby posortować wyniki
-3. **Otwieranie plików**: Podwójnie kliknij na wiersz aby otworzyć plik PDF
-4. **Trwałość**: Lista jest zapisywana i dostępna po ponownym uruchomieniu aplikacji
-5. **Czyszczenie**: Użyj przycisku "Wyczyść wszystko" aby usunąć wszystkie wpisy
-
-### Rekursywne przeszukiwanie folderów
-
-Aplikacja automatycznie przeszukuje **wszystkie foldery** w Twoim koncie email (IMAP):
-- Nie musisz ręcznie przenosić wiadomości do INBOX
-- Przeszukiwane są również podfoldery i zagnieżdżone struktury
-- W logach zobaczysz nazwy przeszukiwanych folderów
-
-### Zaawansowana konfiguracja
-
-Możesz dostosować zachowanie aplikacji edytując plik `~/.poczta_faktury_config.json`:
-
-```json
-{
-  "search_config": {
-    "invoice_filename_pattern": "fakt",
-    "overwrite_policy": "suffix",
-    "search_all_folders": true
-  }
-}
-```
-
-**Parametry:**
-- `invoice_filename_pattern`: Wzorzec (regex) do wykrywania faktur w nazwie pliku
-  - Przykłady: `"fakt"`, `"(fakt|invoice)"`, `"(faktura|rachunek)"`
-- `overwrite_policy`: Polityka nadpisywania plików
-  - `"suffix"`: Dodaj sufiks `_1`, `_2` jeśli plik istnieje (domyślne)
-  - `"overwrite"`: Nadpisz istniejący plik
-- `search_all_folders`: Przeszukiwanie wszystkich folderów
-  - `true`: Szukaj we wszystkich folderach (domyślne)
-  - `false`: Szukaj tylko w INBOX
 
 ## Wskazówki / Tips
 
@@ -151,14 +99,10 @@ Możesz dostosować zachowanie aplikacji edytując plik `~/.poczta_faktury_confi
 2. **Duża skrzynka**: Jeśli masz dużo wiadomości, wyszukiwanie może zająć kilka minut
 3. **Backup**: Zalecane jest regularne tworzenie kopii zapasowych znalezionych faktur
 4. **Organizacja**: Twórz osobne foldery dla różnych kontrahentów/NIPów
-5. **Zakładka Znalezione**: Użyj jej jako szybkiego dostępu do wszystkich znalezionych faktur
-6. **Wzorzec wykrywania**: Dostosuj `invoice_filename_pattern` jeśli Twoje faktury mają inne nazwy
-7. **Przerwanie**: Możesz w każdej chwili przerwać wyszukiwanie - znalezione do tej pory faktury zostaną zapisane
 
 ## Bezpieczeństwo / Security
 
-- Aplikacja nie zapisuje danych logowania (chyba że zaznaczysz "Zapisz ustawienia")
+- Aplikacja nie zapisuje danych logowania
 - Hasła są przekazywane bezpośrednio do serwera email
 - Używaj aplikacji tylko na zaufanych komputerach
 - Regularnie zmieniaj hasła do poczty email
-- Lista znalezionych faktur jest przechowywana lokalnie w `~/.poczta_faktury_found.json`
