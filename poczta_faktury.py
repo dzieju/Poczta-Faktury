@@ -22,6 +22,12 @@ from email.utils import parsedate_to_datetime
 import threading
 import queue
 
+# Safe import for znalezione window
+try:
+    from gui.search_results.znalezione_window import open_znalezione_window
+except Exception:
+    open_znalezione_window = None
+
 # Plik konfiguracyjny
 CONFIG_FILE = Path.home() / '.poczta_faktury_config.json'
 
@@ -220,8 +226,20 @@ class EmailInvoiceFinderApp:
         self.stop_button.pack(side='left', padx=5)
         
         # Przycisk "Znalezione" - okno wyników wyszukiwania
-        self.znalezione_button = ttk.Button(button_frame, text="Znalezione ➜", 
-                   command=self.open_znalezione_window)
+        def _open_znalezione_with_criteria():
+            criteria = {
+                'nip': getattr(self, 'nip_entry', None) and self.nip_entry.get() or '',
+                'output_folder': getattr(self, 'folder_entry', None) and self.folder_entry.get() or '',
+                'date_from': self._get_cutoff_datetime(),
+                'connection': getattr(self, 'email_connection', None)
+            }
+            if open_znalezione_window:
+                open_znalezione_window(self.root, criteria)
+            else:
+                messagebox.showinfo("Info", "Okno Znalezione jest niedostępne (brak modułu)")
+        
+        self.znalezione_button = ttk.Button(button_frame, text="Znalezione ➜",
+                                             command=_open_znalezione_with_criteria)
         self.znalezione_button.pack(side='left', padx=5)
         
         # Pasek postępu
