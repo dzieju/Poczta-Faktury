@@ -36,8 +36,8 @@ class MailConfigFrame(ttk.Frame):
         self.account_type_var = tk.StringVar(value="Exchange")
         self.account_type_frame = ttk.LabelFrame(self, text="Typ konta")
         self.rb_exchange = ttk.Radiobutton(self.account_type_frame, text="Exchange", variable=self.account_type_var, value="Exchange", command=self._on_account_type_change)
-        self.rb_imap = ttk.Radiobutton(self.account_type_frame, text="IMAP/SMTP", variable=self.account_type_var, value="IMAP")
-        self.rb_pop3 = ttk.Radiobutton(self.account_type_frame, text="POP3/SMTP", variable=self.account_type_var, value="POP3")
+        self.rb_imap = ttk.Radiobutton(self.account_type_frame, text="IMAP/SMTP", variable=self.account_type_var, value="IMAP", command=self._on_account_type_change)
+        self.rb_pop3 = ttk.Radiobutton(self.account_type_frame, text="POP3/SMTP", variable=self.account_type_var, value="POP3", command=self._on_account_type_change)
 
         # Dane konta
         self.entries_frame = ttk.Frame(self)
@@ -105,21 +105,21 @@ class MailConfigFrame(ttk.Frame):
         self.entry_password.grid(row=3, column=1, sticky="w")
 
         # auth
-        self.auth_frame.grid(row=3, column=0, sticky="ew", **{"padx": 6, "pady": 0})
+        self.auth_frame.grid(row=4, column=0, sticky="ew", **{"padx": 6, "pady": 0})
         self.rb_auth_password.grid(row=0, column=0, padx=6, pady=4, sticky="w")
         self.rb_auth_oauth2.grid(row=0, column=1, padx=6, pady=4, sticky="w")
         self.rb_auth_app_password.grid(row=0, column=2, padx=6, pady=4, sticky="w")
         self.rb_auth_plain.grid(row=0, column=3, padx=6, pady=4, sticky="w")
 
         # exchange
-        self.exchange_frame.grid(row=4, column=0, sticky="ew", **pad)
+        self.exchange_frame.grid(row=5, column=0, sticky="ew", **pad)
         self.lbl_exchange_server.grid(row=0, column=0, sticky="e")
         self.entry_exchange_server.grid(row=0, column=1, sticky="w")
         self.lbl_exchange_domain.grid(row=1, column=0, sticky="e")
         self.entry_exchange_domain.grid(row=1, column=1, sticky="w")
 
         # buttons
-        self.buttons_frame.grid(row=5, column=0, sticky="e", **pad)
+        self.buttons_frame.grid(row=6, column=0, sticky="e", **pad)
         self.btn_test.grid(row=0, column=0, padx=6)
         self.btn_save.grid(row=0, column=1, padx=6)
         # stylizowany zielony przycisk "Gotowy"
@@ -220,10 +220,10 @@ class MailConfigFrame(ttk.Frame):
             parent.destroy()
         except Exception:
             # jeśli nie chcemy niszczyć najwyższego okna, schowaj ramkę
-            self.master.forget()
+            self.pack_forget()
 
 if __name__ == "__main__":
-    # szybk test wizualny
+    # szybki test wizualny
     root = tk.Tk()
     root.title("Konfiguracja konta - demo")
     frame = MailConfigFrame(root, padding=10)
