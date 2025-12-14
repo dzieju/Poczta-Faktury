@@ -10,6 +10,9 @@ import re
 import tempfile
 import sys
 
+# Normalization pattern for text matching (removes spaces, dashes, special chars)
+NORMALIZATION_PATTERN = r'[\s\-_./\\]+'
+
 # Import logger from our local gui module
 try:
     from gui.logger import log
@@ -258,8 +261,8 @@ class PDFProcessor:
         
         # If no exact matches found, try normalized search (remove spaces, special chars)
         if not matches and len(search_text_lower) > 3:  # Only for longer search terms
-            normalized_search = re.sub(r'[\s\-_./\\]+', '', search_text_lower)
-            normalized_text = re.sub(r'[\s\-_./\\]+', '', full_text_lower)
+            normalized_search = re.sub(NORMALIZATION_PATTERN, '', search_text_lower)
+            normalized_text = re.sub(NORMALIZATION_PATTERN, '', full_text_lower)
             
             start = 0
             while True:
@@ -273,7 +276,7 @@ class PDFProcessor:
                 approx_pos = 0
                 char_count = 0
                 for i, char in enumerate(full_text):
-                    if not re.match(r'[\s\-_./\\]', char.lower()):
+                    if not re.match(NORMALIZATION_PATTERN, char.lower()):
                         char_count += 1
                     if char_count >= chars_before:
                         approx_pos = i

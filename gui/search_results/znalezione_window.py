@@ -28,6 +28,24 @@ except ImportError:
     EmailSearchEngine = None
     search_messages = None
 
+# Placeholder text for demonstration window
+PLACEHOLDER_TEXT = """To jest okno wyników wyszukiwania \"Znalezione\".
+
+W pełnej implementacji tutaj będą wyświetlane:
+- Wiadomości email znalezione w wyszukiwaniu
+- Dopasowania NIP w załącznikach PDF
+- Fragmenty tekstu z PDF pokazujące kontekst dopasowania
+
+Komponenty zostały skopiowane z repozytorium dzieju-app2:
+- pdf_processor.py (ekstrakcja tekstu i OCR)
+- search_engine.py (silnik wyszukiwania)
+- exchange_connection.py (odkrywanie folderów)
+
+Aby w pełni zintegrować tę funkcjonalność, należy:
+1. Podłączyć istniejące połączenie email z aplikacji
+2. Przekazać kryteria wyszukiwania (NIP, zakres dat)
+3. Wywołać search_messages() z odpowiednimi parametrami"""
+
 
 class ZnalezioneWindow:
     """
@@ -256,21 +274,7 @@ class ZnalezioneWindow:
     def show_placeholder_results(self):
         """Show placeholder results (for demonstration)"""
         # This is a placeholder - in full implementation, would show actual search results
-        self.snippet_text.insert('1.0', 
-            "To jest okno wyników wyszukiwania \"Znalezione\".\n\n"
-            "W pełnej implementacji tutaj będą wyświetlane:\n"
-            "- Wiadomości email znalezione w wyszukiwaniu\n"
-            "- Dopasowania NIP w załącznikach PDF\n"
-            "- Fragmenty tekstu z PDF pokazujące kontekst dopasowania\n\n"
-            "Komponenty zostały skopiowane z repozytorium dzieju-app2:\n"
-            "- pdf_processor.py (ekstrakcja tekstu i OCR)\n"
-            "- search_engine.py (silnik wyszukiwania)\n"
-            "- exchange_connection.py (odkrywanie folderów)\n\n"
-            "Aby w pełni zintegrować tę funkcjonalność, należy:\n"
-            "1. Podłączyć istniejące połączenie email z aplikacji\n"
-            "2. Przekazać kryteria wyszukiwania (NIP, zakres dat)\n"
-            "3. Wywołać search_messages() z odpowiednimi parametrami"
-        )
+        self.snippet_text.insert('1.0', PLACEHOLDER_TEXT)
         
         self.results_label.config(text="Znaleziono: 0 wiadomości (przykładowe okno)")
     
