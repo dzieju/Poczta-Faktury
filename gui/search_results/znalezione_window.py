@@ -288,6 +288,8 @@ class ZnalezioneWindow:
         self.clear_results()
         if not folder_path:
             return
+        # Normalize path for security
+        folder_path = os.path.abspath(folder_path)
         if not os.path.isdir(folder_path):
             messagebox.showinfo("Info", f"Folder nie istnieje: {folder_path}")
             return

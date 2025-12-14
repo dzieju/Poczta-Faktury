@@ -228,8 +228,8 @@ class EmailInvoiceFinderApp:
         # Przycisk "Znalezione" - okno wyników wyszukiwania
         def _open_znalezione_with_criteria():
             criteria = {
-                'nip': getattr(self, 'nip_entry', None) and self.nip_entry.get() or '',
-                'output_folder': getattr(self, 'folder_entry', None) and self.folder_entry.get() or '',
+                'nip': self.nip_entry.get() if hasattr(self, 'nip_entry') else '',
+                'output_folder': self.folder_entry.get() if hasattr(self, 'folder_entry') else '',
                 'date_from': self._get_cutoff_datetime(),
                 'connection': getattr(self, 'email_connection', None)
             }
