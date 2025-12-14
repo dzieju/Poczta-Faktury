@@ -2,11 +2,13 @@ PyPDF2==3.0.1
 pdfplumber==0.10.3
 pillow==10.1.0
 
-# Mail server support - required for multi-account configuration
-exchangelib==4.9.0
-imapclient==2.3.1
-
 # Optional dependencies for advanced features
 # Uncomment if you want to use OCR for scanned PDFs:
 # pytesseract==0.3.10
 # pdf2image==1.16.3
+
+# Uncomment if you want to use Exchange server support:
+# exchangelib==4.9.0
+
+# Uncomment if you want to use IMAP with enhanced features:
+# imapclient==2.3.1
