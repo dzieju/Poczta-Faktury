@@ -40,3 +40,9 @@ Thumbs.db
 *.tmp
 *.temp
 /tmp/
+
+# Mail configuration files with sensitive data
+# Only .example files should be committed
+mail_config.json
+exchange_mail_config.json
+*.poczta_faktury_config.json
