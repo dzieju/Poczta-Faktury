@@ -4,7 +4,7 @@ Znalezione (Found) - Search Results Window
 This window displays search results from email searches, including:
 - Results table with columns (date, sender, subject, folder, attachments, status)
 - PDF snippet display showing matched text from attachments
-- Action buttons (Open Attachment, Download, Show in Mail)
+- Action buttons (Open Attachment, Show in Mail)
 - Pagination support
 
 Source: Created for Poczta-Faktury based on design from dzieju-app2
@@ -14,6 +14,11 @@ import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
 from datetime import datetime
 import os
+import subprocess
+import sys
+import tempfile
+import email
+from email.header import decode_header
 
 # Import logger from our local gui module
 try:
@@ -85,6 +90,9 @@ class ZnalezioneWindow:
         # Pagination state
         self.current_page = 0
         self.per_page = 50
+        
+        # Metadata storage for tree items
+        self.item_metadata = {}
         
         # Create window
         self.window = tk.Toplevel(parent)
@@ -206,12 +214,6 @@ class ZnalezioneWindow:
         
         ttk.Button(
             button_frame,
-            text="Pobierz",
-            command=self.download_attachment
-        ).pack(side='left', padx=5)
-        
-        ttk.Button(
-            button_frame,
             text="Pokaż w poczcie",
             command=self.show_in_mail
         ).pack(side='left', padx=5)
@@ -282,6 +284,7 @@ class ZnalezioneWindow:
             self.tree.delete(item)
         self.snippet_text.delete('1.0', tk.END)
         self.results_label.config(text="Znaleziono: 0 wiadomości")
+        self.item_metadata = {}  # Clear metadata dict
     
     def load_results_from_folder(self, folder_path):
         """Load PDF files from folder and display them in results table"""
@@ -294,16 +297,62 @@ class ZnalezioneWindow:
             messagebox.showinfo("Info", f"Folder nie istnieje: {folder_path}")
             return
         try:
-            files = [f for f in os.listdir(folder_path) if f.lower().endswith('.pdf')]
-            files.sort()
-            for fname in files:
+            # Get all PDF files
+            pdf_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.pdf')]
+            pdf_files.sort()
+            
+            # Create mapping of EML files (assuming naming pattern: N_email.eml for N_*.pdf)
+            eml_files = {}
+            for f in os.listdir(folder_path):
+                if f.lower().endswith('.eml'):
+                    # Extract the number prefix (e.g., "1" from "1_email.eml")
+                    parts = f.split('_')
+                    if parts:
+                        num = parts[0]
+                        eml_files[num] = os.path.join(folder_path, f)
+            
+            for fname in pdf_files:
                 full = os.path.join(folder_path, fname)
                 try:
                     mtime = datetime.fromtimestamp(os.path.getmtime(full)).strftime('%Y-%m-%d %H:%M')
                 except Exception:
                     mtime = '-'
-                self.tree.insert('', 'end', values=(mtime, '-', fname, folder_path, '1', 'Zapisano'))
-            self.results_label.config(text=f"Znaleziono: {len(files)} plików")
+                
+                # Try to find corresponding EML file
+                eml_path = None
+                from_address = '-'
+                subject = fname
+                
+                # Extract number prefix from PDF filename (e.g., "1" from "1_invoice.pdf")
+                pdf_parts = fname.split('_')
+                if pdf_parts:
+                    num = pdf_parts[0]
+                    eml_path = eml_files.get(num)
+                    
+                    # If EML exists, parse it to get sender and subject
+                    if eml_path and os.path.isfile(eml_path):
+                        try:
+                            with open(eml_path, 'rb') as eml_file:
+                                eml_message = email.message_from_bytes(eml_file.read())
+                                from_header = eml_message.get('From', '-')
+                                from_address = self._extract_email_address(from_header)
+                                subject_header = eml_message.get('Subject', fname)
+                                subject = self._decode_email_subject(subject_header)
+                        except Exception as e:
+                            log(f"Błąd parsowania EML {eml_path}: {e}", level="WARNING")
+                
+                # Create metadata object with PDF path and EML path
+                metadata = {
+                    'pdf_paths': [full],
+                    'eml_path': eml_path,
+                    'from_address': from_address,
+                    'subject': subject
+                }
+                item_id = self.tree.insert('', 'end', values=(mtime, from_address, subject, folder_path, '1', 'Zapisano'))
+                # Store metadata in a dict keyed by item ID
+                self.item_metadata[item_id] = metadata
+            
+            self.results_label.config(text=f"Znaleziono: {len(pdf_files)} plików")
         except Exception as e:
             log(f"Błąd podczas wczytywania folderu wyników: {e}", level="ERROR")
             messagebox.showerror("Błąd", f"Nie udało się wczytać folderu wyników:\n{str(e)}")
@@ -341,38 +390,152 @@ class ZnalezioneWindow:
         log(f"Message selected: {values[2]}")
     
     def on_message_double_click(self, event):
-        """Handle double-click on message"""
-        self.show_in_mail()
+        """Handle double-click on message - opens PDF attachment"""
+        self.open_attachment()
     
     def open_attachment(self):
-        """Open the selected message's attachment"""
+        """Open the selected message's PDF attachment"""
         selection = self.tree.selection()
         if not selection:
             messagebox.showinfo("Info", "Wybierz wiadomość z tabeli")
             return
         
-        messagebox.showinfo("Info", "Funkcja otwierania załącznika zostanie zaimplementowana")
-        log("Open attachment requested")
-    
-    def download_attachment(self):
-        """Download the selected message's attachment"""
-        selection = self.tree.selection()
-        if not selection:
-            messagebox.showinfo("Info", "Wybierz wiadomość z tabeli")
+        item_id = selection[0]
+        item = self.tree.item(item_id)
+        values = item['values']
+        
+        # Try to get metadata from stored dict
+        metadata = self.item_metadata.get(item_id, {})
+        pdf_paths = metadata.get('pdf_paths', [])
+        
+        # If no metadata, try to construct path from folder column
+        if not pdf_paths:
+            folder_path = values[3]  # Folder column
+            filename = values[2]  # Subject/filename column
+            if folder_path and folder_path != '-':
+                pdf_path = os.path.join(folder_path, filename)
+                if os.path.isfile(pdf_path):
+                    pdf_paths = [pdf_path]
+        
+        if not pdf_paths:
+            messagebox.showwarning("Ostrzeżenie", "Nie znaleziono ścieżki do załącznika PDF")
+            log("No PDF path found for selected item", level="WARNING")
             return
         
-        messagebox.showinfo("Info", "Funkcja pobierania załącznika zostanie zaimplementowana")
-        log("Download attachment requested")
+        # Open the first PDF (or only PDF)
+        pdf_path = pdf_paths[0]
+        
+        try:
+            self._open_file_with_system_app(pdf_path)
+            log(f"Opened PDF attachment: {pdf_path}")
+        except Exception as e:
+            log(f"Error opening PDF attachment: {e}", level="ERROR")
+            messagebox.showerror("Błąd", f"Nie udało się otworzyć załącznika:\n{str(e)}")
     
     def show_in_mail(self):
-        """Show the selected message in the mail client"""
+        """Show the selected message in the mail client (open .eml file)"""
         selection = self.tree.selection()
         if not selection:
             messagebox.showinfo("Info", "Wybierz wiadomość z tabeli")
             return
         
-        messagebox.showinfo("Info", "Funkcja pokazania w kliencie pocztowym zostanie zaimplementowana")
-        log("Show in mail requested")
+        item_id = selection[0]
+        
+        # Try to get metadata from stored dict
+        metadata = self.item_metadata.get(item_id, {})
+        eml_path = metadata.get('eml_path')
+        
+        if not eml_path or not os.path.isfile(eml_path):
+            messagebox.showwarning("Ostrzeżenie", 
+                "Plik .eml nie jest dostępny.\n\n"
+                "Ta funkcja działa tylko gdy wiadomości są zapisane jako pliki .eml na dysku.")
+            log("No EML path found for selected item", level="WARNING")
+            return
+        
+        try:
+            self._open_file_with_system_app(eml_path)
+            log(f"Opened EML file: {eml_path}")
+        except Exception as e:
+            log(f"Error opening EML file: {e}", level="ERROR")
+            messagebox.showerror("Błąd", f"Nie udało się otworzyć wiadomości:\n{str(e)}")
+    
+    def _open_file_with_system_app(self, file_path):
+        """
+        Open a file with the system's default application
+        
+        Args:
+            file_path: Path to the file to open
+            
+        Raises:
+            Exception: If file cannot be opened
+        """
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError(f"Plik nie istnieje: {file_path}")
+        
+        try:
+            if sys.platform == 'win32':
+                # Windows
+                os.startfile(file_path)
+            elif sys.platform == 'darwin':
+                # macOS
+                subprocess.run(['open', file_path], check=True)
+            else:
+                # Linux and other Unix-like
+                subprocess.run(['xdg-open', file_path], check=True)
+        except subprocess.CalledProcessError as e:
+            raise Exception(f"Nie można uruchomić aplikacji: {str(e)}")
+        except Exception as e:
+            raise Exception(f"Błąd podczas otwierania pliku: {str(e)}")
+    
+    def _extract_email_address(self, from_header):
+        """
+        Extract email address from From header
+        
+        Args:
+            from_header: Email From header (e.g., "John Doe <john@example.com>")
+            
+        Returns:
+            str: Email address or original string if parsing fails
+        """
+        if not from_header:
+            return '-'
+        
+        # Try to extract email from format "Name <email@example.com>"
+        import re
+        email_pattern = r'<([^>]+)>'
+        match = re.search(email_pattern, from_header)
+        if match:
+            return match.group(1)
+        
+        # If no angle brackets, return as-is (might already be just email)
+        return from_header.strip()
+    
+    def _decode_email_subject(self, subject):
+        """
+        Decode email subject handling encoded headers
+        
+        Args:
+            subject: Email subject string (possibly encoded)
+            
+        Returns:
+            str: Decoded subject
+        """
+        if not subject:
+            return ""
+        
+        decoded_parts = []
+        try:
+            for part, encoding in decode_header(subject):
+                if isinstance(part, bytes):
+                    try:
+                        decoded_parts.append(part.decode(encoding or 'utf-8'))
+                    except (UnicodeDecodeError, LookupError):
+                        decoded_parts.append(part.decode('utf-8', errors='ignore'))
+                else:
+                    decoded_parts.append(str(part))
+            return ''.join(decoded_parts)
+        except Exception:
+            return subject
     
     def previous_page(self):
         """Go to previous page of results"""

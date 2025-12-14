@@ -787,7 +787,7 @@ class EmailInvoiceFinderApp:
                             if self.search_nip_in_text(pdf_text, nip):
                                 found_count += 1
                                 
-                                # Save file with timestamp
+                                # Save PDF file with timestamp
                                 safe_filename = self.make_safe_filename(filename)
                                 output_path = os.path.join(output_folder, f"{found_count}_{safe_filename}")
                                 
@@ -796,6 +796,19 @@ class EmailInvoiceFinderApp:
                                     output_path, 
                                     email_message
                                 )
+                                
+                                # Also save the complete email as .eml file
+                                eml_filename = f"{found_count}_email.eml"
+                                eml_path = os.path.join(output_folder, eml_filename)
+                                try:
+                                    with open(eml_path, 'wb') as eml_file:
+                                        eml_file.write(email_body)
+                                    # Set timestamp on EML file too
+                                    timestamp = self._get_email_timestamp(email_message)
+                                    if timestamp:
+                                        self._set_file_timestamp(eml_path, timestamp)
+                                except Exception as e:
+                                    self.safe_log(f"Ostrzeżenie: Nie można zapisać pliku .eml: {e}")
                                 
                                 self.safe_log(f"✓ Znaleziono: {filename} (z: {subject})")
                         
@@ -888,7 +901,7 @@ class EmailInvoiceFinderApp:
                             if self.search_nip_in_text(pdf_text, nip):
                                 found_count += 1
                                 
-                                # Save file with timestamp
+                                # Save PDF file with timestamp
                                 safe_filename = self.make_safe_filename(filename)
                                 output_path = os.path.join(output_folder, f"{found_count}_{safe_filename}")
                                 
@@ -897,6 +910,19 @@ class EmailInvoiceFinderApp:
                                     output_path, 
                                     email_message
                                 )
+                                
+                                # Also save the complete email as .eml file
+                                eml_filename = f"{found_count}_email.eml"
+                                eml_path = os.path.join(output_folder, eml_filename)
+                                try:
+                                    with open(eml_path, 'wb') as eml_file:
+                                        eml_file.write(email_body)
+                                    # Set timestamp on EML file too
+                                    timestamp = self._get_email_timestamp(email_message)
+                                    if timestamp:
+                                        self._set_file_timestamp(eml_path, timestamp)
+                                except Exception as e:
+                                    self.safe_log(f"Ostrzeżenie: Nie można zapisać pliku .eml: {e}")
                                 
                                 self.safe_log(f"✓ Znaleziono: {filename} (z: {subject})")
                         
