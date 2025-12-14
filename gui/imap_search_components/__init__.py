@@ -1,0 +1,3 @@
+"""
+IMAP search components
+"""
