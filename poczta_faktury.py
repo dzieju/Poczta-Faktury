@@ -90,9 +90,9 @@ class EmailInvoiceFinderApp:
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill='both', expand=True, padx=10, pady=10)
         
-        # Zakładka 1: Konfiguracja email (legacy - simple config)
+        # Zakładka 1: Konfiguracja email
         self.config_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.config_frame, text="Konfiguracja poczty (prosty)")
+        self.notebook.add(self.config_frame, text="Konfiguracja poczty")
         self.create_email_config_tab()
         
         # Zakładka 2: Wyszukiwanie NIP
@@ -100,23 +100,7 @@ class EmailInvoiceFinderApp:
         self.notebook.add(self.search_frame, text="Wyszukiwanie NIP")
         self.create_search_tab()
         
-        # Zakładka 3: Konfiguracja Exchange (zaawansowana)
-        try:
-            from gui.tab_poczta_exchange import TabPocztaExchange
-            self.exchange_tab = TabPocztaExchange(self.notebook)
-            self.notebook.add(self.exchange_tab, text="Poczta Exchange")
-        except Exception as e:
-            print(f"Nie można załadować zakładki Exchange: {e}")
-        
-        # Zakładka 4: Konfiguracja IMAP/POP3 (zaawansowana)
-        try:
-            from gui.tab_poczta_imap import TabPocztaIMAP
-            self.imap_tab = TabPocztaIMAP(self.notebook)
-            self.notebook.add(self.imap_tab, text="Poczta IMAP/POP3")
-        except Exception as e:
-            print(f"Nie można załadować zakładki IMAP/POP3: {e}")
-        
-        # Zakładka 5: O programie
+        # Zakładka 3: O programie
         self.about_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.about_frame, text="O programie")
         self.create_about_tab()
