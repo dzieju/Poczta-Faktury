@@ -219,6 +219,11 @@ class EmailInvoiceFinderApp:
                    command=self.stop_search, state='disabled')
         self.stop_button.pack(side='left', padx=5)
         
+        # Przycisk "Znalezione" - okno wyników wyszukiwania
+        self.znalezione_button = ttk.Button(button_frame, text="Znalezione ➜", 
+                   command=self.open_znalezione_window)
+        self.znalezione_button.pack(side='left', padx=5)
+        
         # Pasek postępu
         self.progress = ttk.Progressbar(self.search_frame, mode='indeterminate')
         self.progress.grid(row=5, column=0, columnspan=2, sticky='ew', padx=10, pady=5)
@@ -1256,6 +1261,40 @@ class EmailInvoiceFinderApp:
             safe_filename = name[:200-len(ext)] + ext
         
         return safe_filename if safe_filename else 'faktura.pdf'
+    
+    def open_znalezione_window(self):
+        """
+        Otwórz okno wyników wyszukiwania "Znalezione"
+        
+        To okno używa komponentów skopiowanych z repozytorium dzieju-app2:
+        - pdf_processor.py dla ekstrakcji tekstu z PDF i OCR
+        - search_engine.py dla silnika wyszukiwania
+        - exchange_connection.py dla odkrywania folderów
+        """
+        try:
+            from gui.search_results.znalezione_window import open_znalezione_window
+            
+            # Przygotuj kryteria wyszukiwania z obecnego formularza
+            search_criteria = {
+                'nip': self.nip_entry.get().strip(),
+                'output_folder': self.folder_entry.get().strip(),
+            }
+            
+            # Dodaj zakres czasowy jeśli wybrany
+            if self.range_1m_var.get():
+                search_criteria['date_from'] = datetime.now() - timedelta(days=30)
+            elif self.range_3m_var.get():
+                search_criteria['date_from'] = datetime.now() - timedelta(days=90)
+            elif self.range_6m_var.get():
+                search_criteria['date_from'] = datetime.now() - timedelta(days=180)
+            elif self.range_week_var.get():
+                search_criteria['date_from'] = datetime.now() - timedelta(days=7)
+            
+            # Otwórz okno
+            open_znalezione_window(self.root, search_criteria)
+            
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Nie można otworzyć okna wyników: {str(e)}")
 
 
 def main():

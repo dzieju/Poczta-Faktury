@@ -97,6 +97,51 @@ python main.py
 - ✅ Ustawianie daty modyfikacji plików zgodnie z datą otrzymania emaila
 - ✅ Zakładka "O programie" z danymi kontaktowymi i wersją aplikacji
 - ✅ Automatyczne wersjonowanie aplikacji (patch version zwiększana przy każdym push do main)
+- ✅ Okno "Znalezione" - zaawansowane wyniki wyszukiwania z tabelą wiadomości i podglądem dopasowań PDF
+
+## Okno "Znalezione" - Zaawansowane wyniki wyszukiwania
+
+Aplikacja zawiera nowe okno "Znalezione", które oferuje zaawansowany widok wyników wyszukiwania. Funkcjonalność ta została zaimplementowana przy użyciu komponentów skopiowanych z repozytorium [dzieju-app2](https://github.com/dzieju/dzieju-app2):
+
+### Skopiowane komponenty
+
+1. **gui/imap_search_components/pdf_processor.py** - Ekstrakcja tekstu z PDF i OCR
+   - Źródło: [pdf_processor.py](https://github.com/dzieju/dzieju-app2/blob/fcee6b91bf240d17ceb38f8564beab5aa9637437/gui/imap_search_components/pdf_processor.py)
+   - Funkcje: Ekstrakcja tekstu z PDF, OCR fallback, normalizacja tekstu (usuwanie spacji/kresek)
+   - Metoda `_extract_matches` zwraca fragmenty tekstu z kontekstem wokół dopasowań
+
+2. **gui/imap_search_components/search_engine.py** - Silnik wyszukiwania email
+   - Źródło: [search_engine.py (IMAP)](https://github.com/dzieju/dzieju-app2/blob/fcee6b91bf240d17ceb38f8564beab5aa9637437/gui/imap_search_components/search_engine.py)
+   - Funkcje: Wyszukiwanie wiadomości, paginacja, mapowanie wiadomość->folder
+   - Publiczne API: `search_messages(criteria, progress_callback)`
+
+3. **gui/mail_search_components/exchange_connection.py** - Zarządzanie folderami Exchange
+   - Źródło: [exchange_connection.py](https://github.com/dzieju/dzieju-app2/blob/fcee6b91bf240d17ceb38f8564beab5aa9637437/gui/mail_search_components/exchange_connection.py)
+   - Funkcje: `_get_all_subfolders_recursive`, `get_available_folders_for_exclusion`
+   - Używane do odkrywania struktury folderów w skrzynce pocztowej
+
+4. **gui/search_results/znalezione_window.py** - Okno GUI z wynikami
+   - Nowa implementacja oparta na Tkinter
+   - Tabela z kolumnami: data, nadawca, temat, folder, załączniki, status
+   - Podgląd dopasowań PDF z kontekstem
+   - Przyciski akcji: Otwórz załącznik, Pobierz, Pokaż w poczcie
+   - Paginacja wyników
+
+### Jak używać okna "Znalezione"
+
+1. W zakładce "Wyszukiwanie NIP" wprowadź numer NIP i opcjonalnie wybierz zakres dat
+2. Kliknij przycisk "Znalezione ➜" obok przycisku "Szukaj faktur"
+3. Otworzy się nowe okno z zaawansowanym interfejsem wyników
+4. W przyszłości okno będzie wyświetlać rzeczywiste wyniki wyszukiwania z dopasowaniami PDF
+
+### Testy jednostkowe
+
+Dodano testy dla metody `_extract_matches`:
+- `tests/test_pdf_extract_matches.py` - 11 przypadków testowych
+- Testowanie dopasowań: dokładne, przybliżone (z normalizacją), case-insensitive
+- Testowanie różnych formatów NIP (z kreskami, spacjami, różnymi separatorami)
+
+Uruchom testy: `python tests/test_pdf_extract_matches.py`
 
 ## Uwagi
 
@@ -105,3 +150,4 @@ python main.py
 - Możesz użyć przycisku "Przerwij" aby zatrzymać wyszukiwanie w dowolnym momencie
 - Niektóre serwery email mogą wymagać specjalnych uprawnień lub haseł aplikacji
 - Daty modyfikacji zapisanych plików odpowiadają dacie otrzymania emaila (sprawdź z `ls -l --time-style=long-iso`)
+- Okno "Znalezione" jest w wersji demonstracyjnej - pełna integracja z wyszukiwaniem wymaga dalszej implementacji
