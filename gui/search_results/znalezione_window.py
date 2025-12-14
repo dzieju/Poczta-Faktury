@@ -16,7 +16,7 @@ from datetime import datetime
 import os
 import subprocess
 import sys
-import tempfile
+import re
 import email
 from email.header import decode_header
 
@@ -501,7 +501,6 @@ class ZnalezioneWindow:
             return '-'
         
         # Try to extract email from format "Name <email@example.com>"
-        import re
         email_pattern = r'<([^>]+)>'
         match = re.search(email_pattern, from_header)
         if match:

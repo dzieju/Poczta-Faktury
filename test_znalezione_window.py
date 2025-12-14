@@ -8,9 +8,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent))
-
 def test_email_address_extraction():
     """Test email address extraction from various From headers"""
     # Mock the _extract_email_address method
@@ -64,8 +61,8 @@ def test_file_opening_logic():
         
         print(f"  ✓ File exists and can be checked")
         
-        # Test non-existent file
-        non_existent = "/tmp/non_existent_file_12345.pdf"
+        # Test non-existent file (cross-platform)
+        non_existent = os.path.join(tempfile.gettempdir(), 'non_existent_file_12345.pdf')
         if os.path.isfile(non_existent):
             print(f"  ✗ Non-existent file check failed")
             return False

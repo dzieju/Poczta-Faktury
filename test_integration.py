@@ -9,11 +9,6 @@ import tempfile
 import email
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from pathlib import Path
-from datetime import datetime
-
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent))
 
 def create_test_eml(sender_email, subject, tmpdir, index):
     """Create a test EML file"""
