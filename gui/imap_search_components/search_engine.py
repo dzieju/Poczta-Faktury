@@ -11,6 +11,7 @@ This is a simplified implementation focusing on core search functionality.
 import threading
 import re
 import email
+import email.utils
 from datetime import datetime, timedelta
 
 # Import logger from our local gui module
@@ -54,10 +55,10 @@ def _normalize_date_range(criteria):
     Convert GUI date criteria (named ranges or explicit dates) to datetime objects.
     
     Supports both explicit datetime objects and named ranges:
-    - 'week': Last 7 days inclusive (today and previous 6 days)
-    - 'month': Last 30 days
-    - '3months': Last 90 days
-    - '6months': Last 180 days
+    - 'range_week': Last 7 days inclusive (today and previous 6 days)
+    - 'range_1m': Last 30 days
+    - 'range_3m': Last 90 days
+    - 'range_6m': Last 180 days
     
     Args:
         criteria: dict with optional 'date_from', 'date_to', 'range_week', 
@@ -465,9 +466,10 @@ def search_messages(criteria, progress_callback=None):
                         continue
                     
                     # Process each message in the batch
-                    for i in range(0, len(data), 2):  # IMAP returns pairs of (headers, structure)
-                        if i + 1 >= len(data):
-                            break
+                    # IMAP can return mixed results, so we process each item individually
+                    for item in data:
+                        if not item or not isinstance(item, tuple) or len(item) < 2:
+                            continue
                         
                         total_processed += 1
                         
@@ -478,15 +480,12 @@ def search_messages(criteria, progress_callback=None):
                         
                         # Parse message
                         try:
-                            header_data = data[i]
-                            if not isinstance(header_data, tuple) or len(header_data) < 2:
-                                continue
-                            
-                            raw_headers = header_data[1]
+                            # item is a tuple: (header_line, header_data)
+                            raw_headers = item[1]
                             msg = email.message_from_bytes(raw_headers)
                             
-                            # Extract UID from header_data
-                            uid_match = re.search(r'UID (\d+)', header_data[0].decode('utf-8', errors='ignore'))
+                            # Extract UID from header_line
+                            uid_match = re.search(r'UID (\d+)', item[0].decode('utf-8', errors='ignore'))
                             msg_uid = uid_match.group(1) if uid_match else str(total_processed)
                             
                             # Check if message has PDF attachments (simplified check from BODYSTRUCTURE)
