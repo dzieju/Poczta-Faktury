@@ -3,9 +3,7 @@
 # when both a package directory and a module file share the same name.
 
 import importlib.util
-import importlib.machinery
 import os
-from typing import Any
 
 _here = os.path.dirname(__file__)
 _root_module_path = os.path.abspath(os.path.join(_here, os.pardir, "poczta_faktury.py"))

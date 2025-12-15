@@ -6,6 +6,7 @@ Test that the import fix for EmailInvoiceFinderApp works correctly
 
 import sys
 import unittest
+import inspect
 from unittest.mock import MagicMock
 
 # Mock tkinter and other GUI dependencies before importing
@@ -33,8 +34,8 @@ class TestImportFix(unittest.TestCase):
                 "EmailInvoiceFinderApp should not be None")
             
             # Verify it's a class
-            self.assertTrue(callable(EmailInvoiceFinderApp),
-                "EmailInvoiceFinderApp should be callable (a class)")
+            self.assertTrue(inspect.isclass(EmailInvoiceFinderApp),
+                "EmailInvoiceFinderApp should be a class")
             
             # Verify the class name
             self.assertEqual(EmailInvoiceFinderApp.__name__, "EmailInvoiceFinderApp",
