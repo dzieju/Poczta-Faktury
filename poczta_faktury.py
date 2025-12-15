@@ -631,7 +631,7 @@ class EmailInvoiceFinderApp:
             
             # Information about time range
             if cutoff_dt:
-                self.safe_log(f"Filtrowanie wiadomości młodszych niż: {cutoff_dt.strftime('%Y-%m-%d')}")
+                self.safe_log(f"Przeszukuję wiadomości od: {cutoff_dt.strftime('%Y-%m-%d')}")
             
             found_count = 0
             
@@ -1051,7 +1051,7 @@ class EmailInvoiceFinderApp:
         # Informacja o zakresie czasowym
         cutoff_dt = self._get_cutoff_datetime()
         if cutoff_dt:
-            self.results_text.insert(tk.END, f"Filtrowanie wiadomości młodszych niż: {cutoff_dt.strftime('%Y-%m-%d')}\n")
+            self.results_text.insert(tk.END, f"Przeszukuję wiadomości od: {cutoff_dt.strftime('%Y-%m-%d')}\n")
         
         self.progress.start()
         self.root.update()
