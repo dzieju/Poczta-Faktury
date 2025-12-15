@@ -631,7 +631,7 @@ class EmailInvoiceFinderApp:
             
             # Information about time range
             if cutoff_dt:
-                self.safe_log(f"Filtrowanie wiadomości starszych niż: {cutoff_dt.strftime('%Y-%m-%d')}")
+                self.safe_log(f"Przeszukuję wiadomości od: {cutoff_dt.strftime('%Y-%m-%d')}")
             
             found_count = 0
             
@@ -721,8 +721,16 @@ class EmailInvoiceFinderApp:
         # Select INBOX
         mail.select('INBOX')
         
-        # Search all messages
-        status, messages = mail.search(None, 'ALL')
+        # Build search criteria with server-side date filtering
+        if cutoff_dt:
+            # Use IMAP SINCE to filter on server side (messages on or after cutoff_dt)
+            since_date_str = cutoff_dt.strftime("%d-%b-%Y")
+            search_criteria = f'SINCE {since_date_str}'
+            self.safe_log(f"Używam filtrowania IMAP: SINCE {since_date_str}")
+            status, messages = mail.search(None, search_criteria)
+        else:
+            # No date filter, search all messages
+            status, messages = mail.search(None, 'ALL')
         
         if status != 'OK':
             raise Exception("Nie można pobrać listy wiadomości")
@@ -1043,7 +1051,7 @@ class EmailInvoiceFinderApp:
         # Informacja o zakresie czasowym
         cutoff_dt = self._get_cutoff_datetime()
         if cutoff_dt:
-            self.results_text.insert(tk.END, f"Filtrowanie wiadomości starszych niż: {cutoff_dt.strftime('%Y-%m-%d')}\n")
+            self.results_text.insert(tk.END, f"Przeszukuję wiadomości od: {cutoff_dt.strftime('%Y-%m-%d')}\n")
         
         self.progress.start()
         self.root.update()
@@ -1093,8 +1101,17 @@ class EmailInvoiceFinderApp:
         # Wybierz skrzynkę INBOX
         mail.select('INBOX')
         
-        # Wyszukaj wszystkie wiadomości
-        status, messages = mail.search(None, 'ALL')
+        # Wyszukaj wiadomości z filtrowaniem po dacie
+        if cutoff_dt:
+            # Use IMAP SINCE to filter on server side (messages on or after cutoff_dt)
+            since_date_str = cutoff_dt.strftime("%d-%b-%Y")
+            search_criteria = f'SINCE {since_date_str}'
+            self.results_text.insert(tk.END, f"Używam filtrowania IMAP: SINCE {since_date_str}\n")
+            self.root.update()
+            status, messages = mail.search(None, search_criteria)
+        else:
+            # No date filter, search all messages
+            status, messages = mail.search(None, 'ALL')
         
         if status != 'OK':
             raise Exception("Nie można pobrać listy wiadomości")
