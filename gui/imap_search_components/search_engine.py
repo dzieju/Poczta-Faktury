@@ -52,17 +52,12 @@ def _imap_date_str(dt):
 
 def _normalize_date_range(criteria):
     """
-    Convert GUI date criteria (named ranges or explicit dates) to datetime objects.
+    Convert GUI date criteria to datetime objects.
     
-    Supports both explicit datetime objects and named ranges:
-    - 'range_week': Last 7 days inclusive (today and previous 6 days)
-    - 'range_1m': Last 30 days
-    - 'range_3m': Last 90 days
-    - 'range_6m': Last 180 days
+    Supports explicit datetime objects from calendar picker.
     
     Args:
-        criteria: dict with optional 'date_from', 'date_to', 'range_week', 
-                 'range_1m', 'range_3m', 'range_6m' keys
+        criteria: dict with optional 'date_from', 'date_to' keys
                  
     Returns:
         tuple: (date_from, date_to) as datetime objects, or (None, None) if no date filtering
@@ -71,37 +66,12 @@ def _normalize_date_range(criteria):
     date_to = criteria.get('date_to')
     
     # If explicit dates provided, use them
-    if date_from and date_to:
+    if date_from or date_to:
         # Normalize to start/end of day
-        if hasattr(date_from, 'replace'):
+        if date_from and hasattr(date_from, 'replace'):
             date_from = date_from.replace(hour=0, minute=0, second=0, microsecond=0)
-        if hasattr(date_to, 'replace'):
+        if date_to and hasattr(date_to, 'replace'):
             date_to = date_to.replace(hour=23, minute=59, second=59, microsecond=999999)
-        return (date_from, date_to)
-    
-    # Check for named range flags
-    today = datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999)
-    
-    # Define 'week' as last 7 days inclusive (today and previous 6 days)
-    if criteria.get('range_week'):
-        date_from = (today - timedelta(days=6)).replace(hour=0, minute=0, second=0, microsecond=0)
-        date_to = today
-        log(f"Using 'week' range: {date_from.strftime('%Y-%m-%d')} to {date_to.strftime('%Y-%m-%d')} (last 7 days inclusive)")
-        return (date_from, date_to)
-    
-    if criteria.get('range_1m'):
-        date_from = (today - timedelta(days=30)).replace(hour=0, minute=0, second=0, microsecond=0)
-        date_to = today
-        return (date_from, date_to)
-    
-    if criteria.get('range_3m'):
-        date_from = (today - timedelta(days=90)).replace(hour=0, minute=0, second=0, microsecond=0)
-        date_to = today
-        return (date_from, date_to)
-    
-    if criteria.get('range_6m'):
-        date_from = (today - timedelta(days=180)).replace(hour=0, minute=0, second=0, microsecond=0)
-        date_to = today
         return (date_from, date_to)
     
     # No date filtering
@@ -281,17 +251,13 @@ def search_messages(criteria, progress_callback=None):
     Args:
         criteria: dict with search parameters:
             - 'nip': NIP number to search for
-            - 'date_from': Start date for search (datetime object)
-            - 'date_to': End date for search (datetime object)
+            - 'date_from': Start date for search (datetime object, optional)
+            - 'date_to': End date for search (datetime object, optional)
             - 'folder_path': Folder path to search in (optional)
             - 'excluded_folders': Comma-separated list of folders to exclude (optional)
             - 'connection': Email connection object (IMAP, Exchange, etc.)
             - 'per_page': Results per page (default: 500)
             - 'page': Page number (default: 0)
-            - 'range_week': Search last 7 days (optional boolean flag)
-            - 'range_1m': Search last 30 days (optional boolean flag)
-            - 'range_3m': Search last 90 days (optional boolean flag)
-            - 'range_6m': Search last 180 days (optional boolean flag)
         progress_callback: Optional callback function(message, progress_percent)
         
     Returns:
