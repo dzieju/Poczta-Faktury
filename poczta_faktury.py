@@ -200,39 +200,43 @@ class EmailInvoiceFinderApp:
         
         if TKCALENDAR_AVAILABLE:
             # Try to use Polish locale, fallback to default if not available
+            import locale as locale_module
             try:
-                # Test if pl_PL locale is available
-                test_widget = DateEntry(date_range_frame, locale='pl_PL')
-                test_widget.destroy()
+                # Check if pl_PL locale is available
+                locale_module.setlocale(locale_module.LC_TIME, 'pl_PL.UTF-8')
                 calendar_locale = 'pl_PL'
             except Exception:
                 # Fallback to default locale if pl_PL is not available
                 calendar_locale = None
+            finally:
+                # Reset locale to default
+                try:
+                    locale_module.setlocale(locale_module.LC_TIME, '')
+                except Exception:
+                    pass
+            
+            # Common DateEntry parameters
+            date_entry_params = {
+                'width': 12,
+                'background': 'darkblue',
+                'foreground': 'white',
+                'borderwidth': 2,
+                'date_pattern': 'yyyy-mm-dd',
+                'showweeknumbers': False
+            }
+            if calendar_locale:
+                date_entry_params['locale'] = calendar_locale
             
             # Date "Od" (From)
             ttk.Label(date_range_frame, text="Od:").pack(side='left', padx=(0, 5))
-            if calendar_locale:
-                self.date_from_entry = DateEntry(date_range_frame, width=12, background='darkblue',
-                                                 foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd',
-                                                 locale=calendar_locale, showweeknumbers=False)
-            else:
-                self.date_from_entry = DateEntry(date_range_frame, width=12, background='darkblue',
-                                                 foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd',
-                                                 showweeknumbers=False)
+            self.date_from_entry = DateEntry(date_range_frame, **date_entry_params)
             self.date_from_entry.pack(side='left', padx=5)
             # Set to None initially (will be handled in validation)
             self.date_from_entry.delete(0, tk.END)
             
             # Date "Do" (To)
             ttk.Label(date_range_frame, text="Do:").pack(side='left', padx=(10, 5))
-            if calendar_locale:
-                self.date_to_entry = DateEntry(date_range_frame, width=12, background='darkblue',
-                                               foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd',
-                                               locale=calendar_locale, showweeknumbers=False)
-            else:
-                self.date_to_entry = DateEntry(date_range_frame, width=12, background='darkblue',
-                                               foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd',
-                                               showweeknumbers=False)
+            self.date_to_entry = DateEntry(date_range_frame, **date_entry_params)
             self.date_to_entry.pack(side='left', padx=5)
             # Set to today by default
             self.date_to_entry.set_date(date.today())
