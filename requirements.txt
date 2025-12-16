@@ -18,4 +18,7 @@ exchangelib>=4.0.0
 # Testing
 pytest>=7.0.0
 
+# GUI dependencies
+tkcalendar>=1.6.0
+
 # TODO: add any additional project-specific dependencies here

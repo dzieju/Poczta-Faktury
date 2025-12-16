@@ -1,0 +1,8 @@
+Defaulting to user installation because normal site-packages is not writeable
+Collecting tkcalendar
+  Downloading tkcalendar-1.6.1-py3-none-any.whl.metadata (22 kB)
+Requirement already satisfied: babel in /usr/lib/python3/dist-packages (from tkcalendar) (2.10.3)
+Downloading tkcalendar-1.6.1-py3-none-any.whl (40 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 40.9/40.9 kB 5.1 MB/s eta 0:00:00
+Installing collected packages: tkcalendar
+Successfully installed tkcalendar-1.6.1
