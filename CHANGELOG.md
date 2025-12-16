@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed - 2025-12-16
+
+#### Przeniesienie wyświetlania silnika PDF do zakładki Ustawienia
+
+Wyświetlanie aktualnego silnika PDF zostało przeniesione z okna "Znalezione" do zakładki "Ustawienia" dla lepszej organizacji interfejsu użytkownika.
+
+**Zmiany:**
+- Usunięto wyświetlanie "Silnik PDF: {nazwa}" z paska narzędzi okna "Znalezione"
+- Dodano wyświetlanie aktualnego silnika obok nagłówka "Silnik PDF:" w zakładce Ustawienia
+- Wartość aktualizuje się na żywo przy zmianie wyboru w dropdown menu
+- Poprawiono synchronizację między UI a modelem danych (`email_config`)
+
+**Pliki zmienione:**
+- `poczta_faktury.py` - dodano `current_engine_label` i callback `_on_pdf_engine_changed()`
+- `gui/search_results/znalezione_window.py` - usunięto `pdf_engine_label` i metodę `_get_pdf_engine_from_config()`
+
+**Korzyści:**
+- Bardziej logiczne umiejscowienie - wyświetlanie i zmiana silnika w jednym miejscu
+- Czystszy interfejs okna wyników wyszukiwania
+- Lepsza spójność UI
+
 ### Added - 2024-12-14
 
 #### Okno "Znalezione" - Zaawansowane wyniki wyszukiwania

@@ -28,7 +28,7 @@ A new section has been added to the Ustawienia tab with the following components
                     [Separator]
                          │
 ┌─────────────────────────────────────────────────────────┐
-│ Silnik PDF:                                             │
+│ Silnik PDF: pdfplumber                                  │
 │                                                         │
 │ Wybierz silnik ekstrakcji tekstu:                      │
 │ [pdfplumber                                        ▼]   │
@@ -39,11 +39,12 @@ A new section has been added to the Ustawienia tab with the following components
 
 #### Components Added
 1. **Horizontal Separator**: Visual separator using `ttk.Separator` to distinguish the PDF engine section from mail configuration
-2. **Section Label**: "Silnik PDF:" in bold to indicate a new section
+2. **Section Header**: "Silnik PDF:" in bold with **current engine value displayed next to it** (green text, smaller font)
 3. **Instruction Label**: "Wybierz silnik ekstrakcji tekstu:" to guide users
 4. **Dropdown Menu**: Read-only combobox with two options:
    - `pdfplumber` (default, current engine)
    - `pdfminer.six` (new alternative engine)
+5. **Live Update**: The current engine value next to "Silnik PDF:" updates automatically when the dropdown selection changes
 
 ### 3. Configuration Persistence
 
@@ -116,6 +117,25 @@ Updated references in the following files:
 7. Check "Zapisz ustawienia" if you want to save this preference
 8. The selected engine will be used for all future PDF text extractions
 
+## Recent Update (December 2025): Display Moved to Settings
+
+### What Changed
+The display of the current PDF engine has been **moved from the "Znalezione" (Found) window to the "Ustawienia" (Settings) tab**:
+
+- **Removed from**: Top toolbar of the "Znalezione" search results window
+- **Added to**: Next to the "Silnik PDF:" label in the Settings tab
+- **Benefits**: 
+  - More logical placement - the engine display is now in the same location where users can change it
+  - Cleaner "Znalezione" window UI - less clutter in the search results view
+  - Better user experience - see the current engine and change it in one place
+
+### Implementation Details
+- Created `pdf_header_frame` to hold both the label and current value
+- Added `current_engine_label` that displays the current engine value in green text
+- Implemented `_on_pdf_engine_changed()` callback that updates the display when the dropdown changes
+- Callback also syncs `self.email_config['pdf_engine']` with the UI for data model consistency
+- Removed `_get_pdf_engine_from_config()` method from `ZnalezioneWindow` (no longer needed)
+
 ## Testing
 
 All changes have been tested and verified:
@@ -123,11 +143,15 @@ All changes have been tested and verified:
 - ✓ PDF engine dropdown appears in the UI
 - ✓ Dropdown has correct options (pdfplumber, pdfminer.six)
 - ✓ Horizontal separator visible between sections
+- ✓ **Current engine value displayed next to "Silnik PDF:" label**
+- ✓ **Display updates live when dropdown selection changes**
+- ✓ **Engine display removed from "Znalezione" window**
 - ✓ PDF engine preference saved in config
 - ✓ PDF engine preference loaded from config
 - ✓ extract_text_from_pdf respects selected engine
 - ✓ Both engines can be imported and used
-- ✓ No security vulnerabilities introduced
+- ✓ No security vulnerabilities introduced (CodeQL: 0 alerts)
+- ✓ Code review completed and all feedback addressed
 
 ## Backward Compatibility
 
