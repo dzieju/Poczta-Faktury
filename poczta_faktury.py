@@ -69,6 +69,9 @@ class EmailInvoiceFinderApp:
             'pdf_engine': 'pdfplumber'  # PDF engine: pdfplumber or pdfminer.six
         }
         
+        # Initialize PDF engine variable early (before UI creation) to avoid hasattr checks
+        self.pdf_engine_var = None
+        
         # Ustawienia wyszukiwania
         self.search_config = {
             'nip': '',
@@ -415,7 +418,7 @@ class EmailInvoiceFinderApp:
                 'password': self.password_entry.get() if self.save_email_config_var.get() else '',
                 'use_ssl': self.ssl_var.get(),
                 'save_email_settings': self.save_email_config_var.get(),
-                'pdf_engine': self.pdf_engine_var.get() if hasattr(self, 'pdf_engine_var') else 'pdfplumber'
+                'pdf_engine': self.pdf_engine_var.get() if self.pdf_engine_var else 'pdfplumber'
             },
             'search_config': {
                 'nip': self.nip_entry.get() if self.save_search_config_var.get() else '',
@@ -475,7 +478,7 @@ class EmailInvoiceFinderApp:
             self.ssl_var.set(self.email_config['use_ssl'])
         if 'save_email_settings' in self.email_config:
             self.save_email_config_var.set(self.email_config['save_email_settings'])
-        if self.email_config.get('pdf_engine') and hasattr(self, 'pdf_engine_var'):
+        if 'pdf_engine' in self.email_config and self.pdf_engine_var:
             self.pdf_engine_var.set(self.email_config['pdf_engine'])
         
         # Konfiguracja wyszukiwania
@@ -554,7 +557,7 @@ class EmailInvoiceFinderApp:
                 'password': password,
                 'use_ssl': use_ssl,
                 'save_email_settings': self.save_email_config_var.get(),
-                'pdf_engine': self.pdf_engine_var.get() if hasattr(self, 'pdf_engine_var') else 'pdfplumber'
+                'pdf_engine': self.pdf_engine_var.get() if self.pdf_engine_var else 'pdfplumber'
             }
             
             # Zapisz do pliku jeśli zaznaczono checkbox
