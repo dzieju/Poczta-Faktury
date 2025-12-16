@@ -54,13 +54,19 @@ def _normalize_date_range(criteria):
     """
     Convert GUI date criteria to datetime objects.
     
-    Supports explicit datetime objects from calendar picker.
+    Supports explicit datetime objects from calendar picker. Handles None values gracefully,
+    allowing partial date ranges (only start date, only end date, or both).
     
     Args:
         criteria: dict with optional 'date_from', 'date_to' keys
+                 date_from: datetime object for start date (optional, can be None)
+                 date_to: datetime object for end date (optional, can be None)
                  
     Returns:
-        tuple: (date_from, date_to) as datetime objects, or (None, None) if no date filtering
+        tuple: (date_from, date_to) as datetime objects
+               - date_from: normalized to start of day (00:00:00) or None
+               - date_to: normalized to end of day (23:59:59.999999) or None
+               - (None, None) if no date filtering is needed
     """
     date_from = criteria.get('date_from')
     date_to = criteria.get('date_to')

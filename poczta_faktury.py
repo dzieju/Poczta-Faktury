@@ -205,14 +205,14 @@ class EmailInvoiceFinderApp:
                 # Check if pl_PL locale is available
                 locale_module.setlocale(locale_module.LC_TIME, 'pl_PL.UTF-8')
                 calendar_locale = 'pl_PL'
-            except Exception:
+            except (locale_module.Error, ValueError, OSError):
                 # Fallback to default locale if pl_PL is not available
                 calendar_locale = None
             finally:
                 # Reset locale to default
                 try:
                     locale_module.setlocale(locale_module.LC_TIME, '')
-                except Exception:
+                except (locale_module.Error, ValueError):
                     pass
             
             # Common DateEntry parameters
