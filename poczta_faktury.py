@@ -186,11 +186,10 @@ class EmailInvoiceFinderApp:
         
         ttk.Label(pdf_header_frame, text="Silnik PDF:", font=("TkDefaultFont", 10, "bold")).pack(side='left')
         
-        # Display current PDF engine value next to the label
-        current_engine = self.email_config.get('pdf_engine', 'pdfplumber')
+        # Create label for displaying current PDF engine value (will be updated after config is loaded)
         self.current_engine_label = ttk.Label(
             pdf_header_frame, 
-            text=f" {current_engine}",
+            text=f" {self.email_config.get('pdf_engine', 'pdfplumber')}",
             font=("TkDefaultFont", 8),
             foreground='#008000'  # Green color for consistency with previous implementation
         )
@@ -526,6 +525,8 @@ class EmailInvoiceFinderApp:
         if hasattr(self, 'current_engine_label'):
             new_engine = self.pdf_engine_var.get()
             self.current_engine_label.config(text=f" {new_engine}")
+            # Keep the data model in sync with the UI
+            self.email_config['pdf_engine'] = new_engine
     
     def test_connection(self):
         """Testowanie połączenia z serwerem email"""
