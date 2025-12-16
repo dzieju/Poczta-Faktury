@@ -19,7 +19,7 @@ Before testing, you need search results with saved files:
 python main.py
 ```
 
-1. Configure email access in the "Konfiguracja poczty" tab
+1. Configure email access in the "Ustawienia" tab
 2. Go to "Wyszukiwanie NIP" tab
 3. Enter a test NIP number (e.g., "1234567890")
 4. Select an output folder (e.g., create a folder called "test_results")

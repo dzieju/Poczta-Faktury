@@ -35,7 +35,7 @@ python main.py
 
 **Wersjonowanie**: Aplikacja wyświetla wersję w tytule okna, która jest pobierana z pliku `version.txt`. Wersja jest automatycznie zwiększana przez GitHub Actions workflow przy każdym push do gałęzi `main` (patch version jest inkrementowana).
 
-2. W zakładce "Konfiguracja poczty":
+2. W zakładce "Ustawienia":
    - Wybierz protokół (IMAP, POP3 lub Exchange)
    - Podaj adres serwera email (np. imap.gmail.com)
    - Podaj port (domyślnie 993 dla IMAP SSL)
@@ -65,7 +65,7 @@ python main.py
    - Logi i postęp są wyświetlane w czasie rzeczywistym
    - Zapisane pliki mają datę modyfikacji ustawioną zgodnie z datą otrzymania emaila
 
-**Uwaga**: Ustawienia aplikacji są zapisywane w pliku `~/.poczta_faktury_config.json` (jeśli zaznaczono opcję "Zapisz ustawienia"). Hasło do poczty jest zapisywane tylko gdy zaznaczysz checkbox "Zapisz ustawienia" w zakładce "Konfiguracja poczty".
+**Uwaga**: Ustawienia aplikacji są zapisywane w pliku `~/.poczta_faktury_config.json` (jeśli zaznaczono opcję "Zapisz ustawienia"). Hasło do poczty jest zapisywane tylko gdy zaznaczysz checkbox "Zapisz ustawienia" w zakładce "Ustawienia".
 
 ## Przykładowe konfiguracje serwerów
 

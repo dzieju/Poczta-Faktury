@@ -45,7 +45,7 @@ This guide describes how to manually test the new features added to the "Znalezi
 ### Test Scenario 1: Search and View Results
 
 1. **Configure Email Connection**
-   - Go to "Konfiguracja poczty" tab
+   - Go to "Ustawienia" tab
    - Enter your email server details (IMAP or POP3)
    - Click "Testuj połączenie" to verify connection
 
