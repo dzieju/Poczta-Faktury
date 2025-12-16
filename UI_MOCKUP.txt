@@ -1,0 +1,149 @@
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║                    Znalezione - Wyniki wyszukiwania                              ║
+╠══════════════════════════════════════════════════════════════════════════════════╣
+║  Wyszukiwanie NIP: 1234567890                            [Odśwież]               ║
+╠══════════════════════════════════════════════════════════════════════════════════╣
+║                                                                                   ║
+║  Znalezione wiadomości:                                                          ║
+║  ┌─────────────────────────────────────────────────────────────────────────────┐ ║
+║  │ Data         │ Nadawca        │ Temat          │ Folder  │ Załącz │ Status │ ║
+║  ├──────────────┼────────────────┼────────────────┼─────────┼────────┼────────┤ ║
+║  │ 2024-01-15   │ firma@ex.com   │ Faktura 123    │ /tmp/   │ 1      │ OK     │ ║
+║  │ 2024-01-14   │ sklep@ex.com   │ Zamówienie     │ /tmp/   │ 1      │ OK     │ ║
+║  │ 2024-01-13   │ dostawca@ex.com│ Faktura VAT    │ /tmp/   │ 1      │ OK     │◄─┐ ║
+║  │              │                │                │         │        │        │  │ ║
+║  └─────────────────────────────────────────────────────────────────────────────┘  │ ║
+║                                                    ┌────────────────────┐          │ ║
+║                                                    │  Otwórz PDF        │◄─────────┘ ║
+║                                                    │  Otwórz Email      │            ║
+║                                                    └────────────────────┘            ║
+║                                                    Context Menu (PPM)               ║
+║                                                                                   ║
+║  ─────────────────────────────────────────────────────────────────────────────  ║
+║                                                                                   ║
+║  Dopasowania w PDF:                                                              ║
+║  ┌─────────────────────────────────────────────────────────────────────────────┐ ║
+║  │                                                                              │ ║
+║  │  Wybrana wiadomość:                                                          │ ║
+║  │                                                                              │ ║
+║  │  Data: 2024-01-13 15:30                                                      │ ║
+║  │  Od: dostawca@example.com                                                    │ ║
+║  │  Temat: Faktura VAT nr 123/2024                                              │ ║
+║  │  Folder: /tmp/faktury                                                        │ ║
+║  │  Załączniki: 1                                                               │ ║
+║  │                                                                              │ ║
+║  │  Dopasowania PDF będą wyświetlane tutaj...                                   │ ║
+║  │                                                                              │ ║
+║  └─────────────────────────────────────────────────────────────────────────────┘ ║
+║                                                                                   ║
+║  [Otwórz załącznik]  [Pokaż w poczcie]                                           ║
+║                                                                                   ║
+╠══════════════════════════════════════════════════════════════════════════════════╣
+║  Znaleziono: 3 plików                    « Poprzednia  Strona 1  Następna »     ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+                          CONTEXT MENU DEMONSTRATION
+═══════════════════════════════════════════════════════════════════════════════════
+
+Scenario 1: Both PDF and EML files exist
+────────────────────────────────────────────
+User right-clicks on row → Menu appears:
+
+    ┌────────────────────┐
+    │  Otwórz PDF        │ ← Opens invoice.pdf in default PDF viewer
+    │  Otwórz Email      │ ← Opens email.eml in default mail client
+    └────────────────────┘
+
+
+Scenario 2: Only PDF file exists
+────────────────────────────────────────────
+User right-clicks on row → Menu appears:
+
+    ┌────────────────────┐
+    │  Otwórz PDF        │ ← Only PDF option shown
+    └────────────────────┘
+
+
+Scenario 3: Only EML file exists
+────────────────────────────────────────────
+User right-clicks on row → Menu appears:
+
+    ┌────────────────────┐
+    │  Otwórz Email      │ ← Only Email option shown
+    └────────────────────┘
+
+
+Scenario 4: No files exist
+────────────────────────────────────────────
+User right-clicks on row → Info dialog appears:
+
+    ┌─────────────────────────────────────────┐
+    │  Brak plików                       [X]  │
+    ├─────────────────────────────────────────┤
+    │                                         │
+    │  Nie znaleziono plików PDF ani Email    │
+    │  dla tej pozycji.                       │
+    │                                         │
+    │              [OK]                       │
+    └─────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+                          ERROR HANDLING EXAMPLE
+═══════════════════════════════════════════════════════════════════════════════════
+
+When file cannot be opened (e.g., file moved or deleted):
+
+    ┌───────────────────────────────────────────────────────────┐
+    │  Błąd                                              [X]    │
+    ├───────────────────────────────────────────────────────────┤
+    │                                                           │
+    │  Nie udało się otworzyć pliku PDF:                        │
+    │                                                           │
+    │  Ścieżka: /home/user/faktury/1_invoice.pdf               │
+    │                                                           │
+    │  Błąd: [Errno 2] No such file or directory               │
+    │                                                           │
+    │                        [OK]                               │
+    └───────────────────────────────────────────────────────────┘
+
+Note: Error message includes:
+  ✓ Clear description in Polish
+  ✓ Full file path for debugging
+  ✓ Specific error details
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+                     CROSS-PLATFORM COMPATIBILITY
+═══════════════════════════════════════════════════════════════════════════════════
+
+Windows:
+  Trigger: Right mouse button (Button-3)
+  Opens PDF: Adobe Reader, Edge, default PDF viewer
+  Opens EML: Outlook, Windows Mail, Thunderbird
+
+macOS:
+  Trigger: Ctrl+Click or right-click (if configured)
+  Opens PDF: Preview.app or configured viewer
+  Opens EML: Mail.app or configured client
+
+Linux:
+  Trigger: Right mouse button (Button-3)
+  Opens PDF: Evince, Okular, Firefox, default viewer
+  Opens EML: Thunderbird, Evolution, default client
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+                         FEATURE HIGHLIGHTS
+═══════════════════════════════════════════════════════════════════════════════════
+
+✓ Context menu appears on right-click
+✓ Menu items shown only when files exist
+✓ Opens files in system default applications
+✓ Cross-platform support (Windows, macOS, Linux)
+✓ Clear error messages with file paths
+✓ No security vulnerabilities (uses OS APIs safely)
+✓ Complements existing buttons and double-click
+✓ Works with keyboard selection + menu key
