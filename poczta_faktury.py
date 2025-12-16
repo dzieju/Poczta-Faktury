@@ -17,10 +17,18 @@ from pathlib import Path
 import PyPDF2
 import pdfplumber
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from email.utils import parsedate_to_datetime
 import threading
 import queue
+
+# Safe import for tkcalendar DateEntry
+try:
+    from tkcalendar import DateEntry
+    TKCALENDAR_AVAILABLE = True
+except ImportError:
+    TKCALENDAR_AVAILABLE = False
+    DateEntry = None
 
 # Safe import for znalezione window
 try:
@@ -68,7 +76,9 @@ class EmailInvoiceFinderApp:
             'range_1m': False,
             'range_3m': False,
             'range_6m': False,
-            'range_week': False
+            'range_week': False,
+            'date_from': None,  # Custom date range: start date (ISO format YYYY-MM-DD or None)
+            'date_to': None     # Custom date range: end date (ISO format YYYY-MM-DD or None)
         }
         
         # Threading controls for non-blocking search
@@ -208,14 +218,50 @@ class EmailInvoiceFinderApp:
         ttk.Checkbutton(range_frame, text="Ostatni tydzień", 
                        variable=self.range_week_var).pack(side='left', padx=5)
         
+        # Custom date range picker (Od - Do)
+        date_range_frame = ttk.LabelFrame(self.search_frame, text="Własny zakres dat (opcjonalnie)", padding=10)
+        date_range_frame.grid(row=3, column=0, columnspan=2, sticky='ew', padx=10, pady=5)
+        
+        if TKCALENDAR_AVAILABLE:
+            # Date "Od" (From)
+            ttk.Label(date_range_frame, text="Od:").pack(side='left', padx=(0, 5))
+            self.date_from_entry = DateEntry(date_range_frame, width=12, background='darkblue',
+                                             foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
+            self.date_from_entry.pack(side='left', padx=5)
+            # Set to None initially (will be handled in validation)
+            self.date_from_entry.delete(0, tk.END)
+            
+            # Date "Do" (To)
+            ttk.Label(date_range_frame, text="Do:").pack(side='left', padx=(10, 5))
+            self.date_to_entry = DateEntry(date_range_frame, width=12, background='darkblue',
+                                           foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
+            self.date_to_entry.pack(side='left', padx=5)
+            # Set to today by default
+            self.date_to_entry.set_date(date.today())
+            
+            # Clear range button
+            ttk.Button(date_range_frame, text="Wyczyść zakres", 
+                      command=self.clear_date_range).pack(side='left', padx=10)
+            
+            # Info label for date range
+            self.date_range_info_label = ttk.Label(date_range_frame, text="", foreground="blue", font=('Arial', 8))
+            self.date_range_info_label.pack(side='left', padx=10)
+        else:
+            # Fallback if tkcalendar is not available
+            ttk.Label(date_range_frame, text="Kalendarz niedostępny - zainstaluj tkcalendar", 
+                     foreground="red").pack(side='left', padx=5)
+            self.date_from_entry = None
+            self.date_to_entry = None
+            self.date_range_info_label = None
+        
         # Zapisz ustawienia
         self.save_search_config_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(self.search_frame, text="Zapisz ustawienia", 
-                       variable=self.save_search_config_var).grid(row=3, column=0, columnspan=2, padx=10, pady=5)
+                       variable=self.save_search_config_var).grid(row=4, column=0, columnspan=2, padx=10, pady=5)
         
         # Przyciski wyszukiwania
         button_frame = ttk.Frame(self.search_frame)
-        button_frame.grid(row=4, column=0, columnspan=2, pady=20)
+        button_frame.grid(row=5, column=0, columnspan=2, pady=20)
         
         self.search_button = ttk.Button(button_frame, text="Szukaj faktur", 
                    command=self.start_search_thread)
@@ -242,18 +288,22 @@ class EmailInvoiceFinderApp:
                                              command=_open_znalezione_with_criteria)
         self.znalezione_button.pack(side='left', padx=5)
         
+        # Selected date range display (above progress bar)
+        self.selected_range_label = ttk.Label(self.search_frame, text="", foreground="green", font=('Arial', 9, 'bold'))
+        self.selected_range_label.grid(row=6, column=0, columnspan=2, sticky='w', padx=10, pady=2)
+        
         # Pasek postępu
         self.progress = ttk.Progressbar(self.search_frame, mode='indeterminate')
-        self.progress.grid(row=5, column=0, columnspan=2, sticky='ew', padx=10, pady=5)
+        self.progress.grid(row=7, column=0, columnspan=2, sticky='ew', padx=10, pady=5)
         
         # Wyniki
-        ttk.Label(self.search_frame, text="Wyniki:").grid(row=6, column=0, columnspan=2, sticky='w', padx=10, pady=5)
+        ttk.Label(self.search_frame, text="Wyniki:").grid(row=8, column=0, columnspan=2, sticky='w', padx=10, pady=5)
         
         self.results_text = scrolledtext.ScrolledText(self.search_frame, height=20, width=70)
-        self.results_text.grid(row=7, column=0, columnspan=2, sticky='nsew', padx=10, pady=5)
+        self.results_text.grid(row=9, column=0, columnspan=2, sticky='nsew', padx=10, pady=5)
         
         self.search_frame.columnconfigure(1, weight=1)
-        self.search_frame.rowconfigure(7, weight=1)
+        self.search_frame.rowconfigure(9, weight=1)
     
     def create_about_tab(self):
         """Tworzenie zakładki O programie"""
@@ -352,7 +402,9 @@ class EmailInvoiceFinderApp:
                 'range_1m': self.range_1m_var.get() if self.save_search_config_var.get() else False,
                 'range_3m': self.range_3m_var.get() if self.save_search_config_var.get() else False,
                 'range_6m': self.range_6m_var.get() if self.save_search_config_var.get() else False,
-                'range_week': self.range_week_var.get() if self.save_search_config_var.get() else False
+                'range_week': self.range_week_var.get() if self.save_search_config_var.get() else False,
+                'date_from': self.search_config.get('date_from') if self.save_search_config_var.get() else None,
+                'date_to': self.search_config.get('date_to') if self.save_search_config_var.get() else None
             }
         }
         
@@ -423,6 +475,21 @@ class EmailInvoiceFinderApp:
             self.range_6m_var.set(self.search_config['range_6m'])
         if 'range_week' in self.search_config:
             self.range_week_var.set(self.search_config['range_week'])
+        
+        # Apply date range configuration
+        if TKCALENDAR_AVAILABLE and self.date_from_entry and self.date_to_entry:
+            if self.search_config.get('date_from'):
+                try:
+                    from_date = date.fromisoformat(self.search_config['date_from'])
+                    self.date_from_entry.set_date(from_date)
+                except (ValueError, TypeError):
+                    pass
+            if self.search_config.get('date_to'):
+                try:
+                    to_date = date.fromisoformat(self.search_config['date_to'])
+                    self.date_to_entry.set_date(to_date)
+                except (ValueError, TypeError):
+                    pass
     
     def test_connection(self):
         """Testowanie połączenia z serwerem email"""
@@ -492,6 +559,57 @@ class EmailInvoiceFinderApp:
             self.folder_entry.delete(0, tk.END)
             self.folder_entry.insert(0, folder)
     
+    def clear_date_range(self):
+        """Wyczyść wybrane daty w zakresie czasowym"""
+        if TKCALENDAR_AVAILABLE and self.date_from_entry and self.date_to_entry:
+            self.date_from_entry.delete(0, tk.END)
+            self.date_to_entry.set_date(date.today())
+            self.selected_range_label.config(text="")
+            if self.date_range_info_label:
+                self.date_range_info_label.config(text="Zakres wyczyszczony")
+    
+    def validate_date_range(self):
+        """
+        Walidacja zakresu dat: sprawdza czy data Od <= Do.
+        
+        Returns:
+            tuple: (is_valid, date_from, date_to, error_message)
+                   is_valid: bool - czy zakres jest poprawny
+                   date_from: date object or None
+                   date_to: date object or None
+                   error_message: str - komunikat błędu (jeśli is_valid=False)
+        """
+        if not TKCALENDAR_AVAILABLE or not self.date_from_entry or not self.date_to_entry:
+            return (True, None, None, "")
+        
+        # Get date values
+        date_from_str = self.date_from_entry.get().strip()
+        date_to_str = self.date_to_entry.get().strip()
+        
+        # Parse dates
+        date_from = None
+        date_to = None
+        
+        if date_from_str:
+            try:
+                date_from = self.date_from_entry.get_date()
+            except Exception:
+                return (False, None, None, f"Nieprawidłowa data 'Od': {date_from_str}")
+        
+        if date_to_str:
+            try:
+                date_to = self.date_to_entry.get_date()
+            except Exception:
+                return (False, None, None, f"Nieprawidłowa data 'Do': {date_to_str}")
+        
+        # Validate range
+        if date_from and date_to:
+            if date_from > date_to:
+                return (False, date_from, date_to, 
+                       "Data początkowa nie może być późniejsza niż data końcowa")
+        
+        return (True, date_from, date_to, "")
+    
     def safe_log(self, message):
         """Thread-safe logging to queue"""
         self.log_queue.put(message)
@@ -534,6 +652,12 @@ class EmailInvoiceFinderApp:
             self.notebook.select(0)  # Przełącz na zakładkę konfiguracji
             return
         
+        # Validate date range
+        is_valid, date_from, date_to, error_msg = self.validate_date_range()
+        if not is_valid:
+            messagebox.showerror("Błąd zakresu dat", error_msg)
+            return
+        
         # Update search_config
         self.search_config = {
             'nip': nip,
@@ -542,8 +666,24 @@ class EmailInvoiceFinderApp:
             'range_1m': self.range_1m_var.get(),
             'range_3m': self.range_3m_var.get(),
             'range_6m': self.range_6m_var.get(),
-            'range_week': self.range_week_var.get()
+            'range_week': self.range_week_var.get(),
+            'date_from': date_from.isoformat() if date_from else None,
+            'date_to': date_to.isoformat() if date_to else None
         }
+        
+        # Display selected date range
+        if date_from or date_to:
+            range_text = "Wybrany zakres: "
+            if date_from:
+                range_text += f"Od {date_from.strftime('%Y-%m-%d')}"
+            if date_to:
+                if date_from:
+                    range_text += f" Do {date_to.strftime('%Y-%m-%d')}"
+                else:
+                    range_text += f"Do {date_to.strftime('%Y-%m-%d')}"
+            self.selected_range_label.config(text=range_text)
+        else:
+            self.selected_range_label.config(text="")
         
         # Save config if checkbox is checked
         if self.save_search_config_var.get():
@@ -560,12 +700,27 @@ class EmailInvoiceFinderApp:
         # Start progress bar
         self.progress.start()
         
-        # Prepare search parameters
+        # Prepare search parameters - use custom date range if provided, otherwise use checkboxes
+        cutoff_dt = None
+        end_dt = None
+        
+        if date_from or date_to:
+            # Custom date range takes precedence
+            if date_from:
+                cutoff_dt = datetime.combine(date_from, datetime.min.time())
+            if date_to:
+                # Add one day to include the end date (end_dt is exclusive)
+                end_dt = datetime.combine(date_to, datetime.min.time()) + timedelta(days=1)
+        else:
+            # Use checkbox ranges if no custom date range
+            cutoff_dt = self._get_cutoff_datetime()
+        
         params = {
             'nip': nip,
             'output_folder': output_folder,
             'protocol': self.email_config['protocol'],
-            'cutoff_dt': self._get_cutoff_datetime()
+            'cutoff_dt': cutoff_dt,
+            'end_dt': end_dt
         }
         
         # Start search thread
@@ -625,21 +780,29 @@ class EmailInvoiceFinderApp:
             nip = params['nip']
             output_folder = params['output_folder']
             protocol = params['protocol']
-            cutoff_dt = params['cutoff_dt']
+            cutoff_dt = params.get('cutoff_dt')
+            end_dt = params.get('end_dt')
             
             self.safe_log("Rozpoczynam wyszukiwanie...")
             
             # Information about time range
-            if cutoff_dt:
+            if cutoff_dt and end_dt:
+                # Exclusive end date, so show one day before
+                display_end = end_dt - timedelta(days=1)
+                self.safe_log(f"Przeszukuję wiadomości od: {cutoff_dt.strftime('%Y-%m-%d')} do: {display_end.strftime('%Y-%m-%d')}")
+            elif cutoff_dt:
                 self.safe_log(f"Przeszukuję wiadomości od: {cutoff_dt.strftime('%Y-%m-%d')}")
+            elif end_dt:
+                display_end = end_dt - timedelta(days=1)
+                self.safe_log(f"Przeszukuję wiadomości do: {display_end.strftime('%Y-%m-%d')}")
             
             found_count = 0
             
             # Connect to email server
             if protocol == 'POP3':
-                found_count = self._search_with_pop3_threaded(nip, output_folder, cutoff_dt)
+                found_count = self._search_with_pop3_threaded(nip, output_folder, cutoff_dt, end_dt)
             else:  # IMAP or EXCHANGE
-                found_count = self._search_with_imap_threaded(nip, output_folder, cutoff_dt)
+                found_count = self._search_with_imap_threaded(nip, output_folder, cutoff_dt, end_dt)
             
             # Log completion
             if self.stop_event.is_set():
@@ -687,9 +850,19 @@ class EmailInvoiceFinderApp:
             return cutoff_dt
         return None
     
-    def _email_date_is_within_cutoff(self, date_header, cutoff_dt):
-        """Sprawdza czy data wiadomości mieści się w zakresie"""
-        if cutoff_dt is None:
+    def _email_date_is_within_range(self, date_header, cutoff_dt, end_dt=None):
+        """
+        Sprawdza czy data wiadomości mieści się w zakresie [cutoff_dt, end_dt).
+        
+        Args:
+            date_header: Email Date header string
+            cutoff_dt: Start datetime (inclusive) or None for no lower bound
+            end_dt: End datetime (exclusive) or None for no upper bound
+            
+        Returns:
+            bool: True if email date is within range, False otherwise
+        """
+        if cutoff_dt is None and end_dt is None:
             return True  # Brak filtrowania
         
         if not date_header:
@@ -700,12 +873,28 @@ class EmailInvoiceFinderApp:
             # Jeśli email_dt ma timezone, usuń go dla porównania
             if email_dt.tzinfo is not None:
                 email_dt = email_dt.replace(tzinfo=None)
-            return email_dt >= cutoff_dt
+            
+            # Check lower bound
+            if cutoff_dt is not None and email_dt < cutoff_dt:
+                return False
+            
+            # Check upper bound (exclusive)
+            if end_dt is not None and email_dt >= end_dt:
+                return False
+            
+            return True
         except (TypeError, ValueError):
             return True  # W razie błędu parsowania, nie odrzucamy
     
-    def _search_with_imap_threaded(self, nip, output_folder, cutoff_dt):
-        """Threaded IMAP search with stop event checking and timestamp setting"""
+    def _search_with_imap_threaded(self, nip, output_folder, cutoff_dt, end_dt=None):
+        """Threaded IMAP search with stop event checking and timestamp setting
+        
+        Args:
+            nip: NIP number to search for
+            output_folder: Directory to save found invoices
+            cutoff_dt: Start datetime (inclusive) or None
+            end_dt: End datetime (exclusive) or None
+        """
         found_count = 0
         
         # Connect to server
@@ -722,11 +911,22 @@ class EmailInvoiceFinderApp:
         mail.select('INBOX')
         
         # Build search criteria with server-side date filtering
+        search_criteria_parts = []
+        
         if cutoff_dt:
             # Use IMAP SINCE to filter on server side (messages on or after cutoff_dt)
             since_date_str = cutoff_dt.strftime("%d-%b-%Y")
-            search_criteria = f'SINCE {since_date_str}'
+            search_criteria_parts.append(f'SINCE {since_date_str}')
             self.safe_log(f"Używam filtrowania IMAP: SINCE {since_date_str}")
+        
+        if end_dt:
+            # Use IMAP BEFORE to filter on server side (messages before end_dt, exclusive)
+            before_date_str = end_dt.strftime("%d-%b-%Y")
+            search_criteria_parts.append(f'BEFORE {before_date_str}')
+            self.safe_log(f"Używam filtrowania IMAP: BEFORE {before_date_str}")
+        
+        if search_criteria_parts:
+            search_criteria = ' '.join(search_criteria_parts)
             status, messages = mail.search(None, search_criteria)
         else:
             # No date filter, search all messages
@@ -760,7 +960,7 @@ class EmailInvoiceFinderApp:
                 
                 # Check message date
                 date_header = email_message.get('Date')
-                if not self._email_date_is_within_cutoff(date_header, cutoff_dt):
+                if not self._email_date_is_within_range(date_header, cutoff_dt, end_dt):
                     continue  # Skip messages older than cutoff
                 
                 # Get subject
@@ -838,8 +1038,15 @@ class EmailInvoiceFinderApp:
         
         return found_count
     
-    def _search_with_pop3_threaded(self, nip, output_folder, cutoff_dt):
-        """Threaded POP3 search with stop event checking and timestamp setting"""
+    def _search_with_pop3_threaded(self, nip, output_folder, cutoff_dt, end_dt=None):
+        """Threaded POP3 search with stop event checking and timestamp setting
+        
+        Args:
+            nip: NIP number to search for
+            output_folder: Directory to save found invoices
+            cutoff_dt: Start datetime (inclusive) or None
+            end_dt: End datetime (exclusive) or None
+        """
         found_count = 0
         
         # Connect to server
@@ -874,7 +1081,7 @@ class EmailInvoiceFinderApp:
                 
                 # Check message date
                 date_header = email_message.get('Date')
-                if not self._email_date_is_within_cutoff(date_header, cutoff_dt):
+                if not self._email_date_is_within_range(date_header, cutoff_dt, end_dt):
                     continue  # Skip messages older than cutoff
                 
                 # Get subject
@@ -1139,7 +1346,7 @@ class EmailInvoiceFinderApp:
                 
                 # Sprawdź datę wiadomości
                 date_header = email_message.get('Date')
-                if not self._email_date_is_within_cutoff(date_header, cutoff_dt):
+                if not self._email_date_is_within_range(date_header, cutoff_dt, end_dt):
                     continue  # Pomiń wiadomości starsze niż cutoff
                 
                 # Pobierz temat
@@ -1233,7 +1440,7 @@ class EmailInvoiceFinderApp:
                 
                 # Sprawdź datę wiadomości
                 date_header = email_message.get('Date')
-                if not self._email_date_is_within_cutoff(date_header, cutoff_dt):
+                if not self._email_date_is_within_range(date_header, cutoff_dt, end_dt):
                     continue  # Pomiń wiadomości starsze niż cutoff
                 
                 # Pobierz temat
