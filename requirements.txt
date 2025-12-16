@@ -1,14 +1,21 @@
-"""# Requirements for Poczta-Faktury
-# core
-pywin32; platform_system == "Windows"
-requests
-beautifulsoup4
-lxml
-pyyaml
+# Requirements for Poczta-Faktury
+# Cleaned to remove malformed triple-quoted text that caused pip to fail.
+# Add one package per line. Example formats:
+# package==1.2.3
+# package>=1.2.0
+# git+https://github.com/owner/repo.git@branch#egg=packagename
 
-# optional for Exchange support
+# Core dependencies for PDF processing
+PyPDF2>=3.0.0
+pdfplumber>=0.10.0
+
+# Optional Windows-specific support
+pywin32; platform_system == "Windows"
+
+# Optional for Exchange support
 exchangelib>=4.0.0
 
-# testing
-pytest
-"""
+# Testing
+pytest>=7.0.0
+
+# TODO: add any additional project-specific dependencies here
