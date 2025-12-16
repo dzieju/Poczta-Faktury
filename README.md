@@ -103,6 +103,18 @@ python main.py
 
 Aplikacja zawiera nowe okno "Znalezione", które oferuje zaawansowany widok wyników wyszukiwania. Funkcjonalność ta została zaimplementowana przy użyciu komponentów skopiowanych z repozytorium [dzieju-app2](https://github.com/dzieju/dzieju-app2):
 
+### Menu kontekstowe (PPM)
+
+Okno wyników wyszukiwania obsługuje menu kontekstowe (prawy przycisk myszy), które pozwala na:
+- **Otwórz PDF** - otwiera plik PDF faktuty w domyślnej aplikacji systemowej (np. Adobe Reader, Foxit, przeglądarka)
+- **Otwórz Email** - otwiera plik .eml w domyślnym kliencie poczty (np. Outlook, Thunderbird)
+
+Menu kontekstowe:
+- Wyświetla tylko dostępne opcje (jeśli nie ma pliku EML, pokazuje tylko "Otwórz PDF")
+- Automatycznie wykrywa dostępność plików przed wyświetleniem menu
+- Pokazuje szczegółowe komunikaty błędów ze ścieżką do pliku w przypadku problemów
+- Obsługuje klawisze: prawy przycisk myszy (Windows/Linux), Ctrl+klik (macOS)
+
 ### Skopiowane komponenty
 
 1. **gui/imap_search_components/pdf_processor.py** - Ekstrakcja tekstu z PDF i OCR
@@ -132,7 +144,10 @@ Aplikacja zawiera nowe okno "Znalezione", które oferuje zaawansowany widok wyni
 1. W zakładce "Wyszukiwanie NIP" wprowadź numer NIP i opcjonalnie wybierz zakres dat
 2. Kliknij przycisk "Znalezione ➜" obok przycisku "Szukaj faktur"
 3. Otworzy się nowe okno z zaawansowanym interfejsem wyników
-4. W przyszłości okno będzie wyświetlać rzeczywiste wyniki wyszukiwania z dopasowaniami PDF
+4. Aby otworzyć pliki:
+   - **Podwójne kliknięcie** na wynik - otwiera PDF
+   - **Prawy przycisk myszy** (PPM) na wynik - pokazuje menu z opcjami "Otwórz PDF" i "Otwórz Email"
+   - **Przyciski akcji** na dole - "Otwórz załącznik" i "Pokaż w poczcie"
 
 ### Testy jednostkowe
 

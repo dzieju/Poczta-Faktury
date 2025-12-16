@@ -182,6 +182,14 @@ class ZnalezioneWindow:
         self.tree.bind('<<TreeviewSelect>>', self.on_message_selected)
         self.tree.bind('<Double-1>', self.on_message_double_click)
         
+        # Bind right-click for context menu
+        self.tree.bind('<Button-3>', self.show_context_menu)  # Right-click on Linux/Windows
+        self.tree.bind('<Button-2>', self.show_context_menu)  # Right-click on macOS (sometimes)
+        self.tree.bind('<Control-Button-1>', self.show_context_menu)  # Ctrl+Click on macOS
+        
+        # Create context menu (will be populated dynamically)
+        self.context_menu = tk.Menu(self.tree, tearoff=0)
+        
         # Bottom pane: Details and snippets
         details_frame = ttk.Frame(paned)
         paned.add(details_frame, weight=2)
@@ -393,6 +401,131 @@ class ZnalezioneWindow:
         """Handle double-click on message - opens PDF attachment"""
         self.open_attachment()
     
+    def show_context_menu(self, event):
+        """
+        Show context menu when user right-clicks on a tree item
+        
+        Args:
+            event: Tkinter event object with x, y coordinates
+        """
+        # Identify the item under the cursor
+        item_id = self.tree.identify_row(event.y)
+        
+        if not item_id:
+            # No item under cursor, don't show menu
+            return
+        
+        # Select the item that was right-clicked
+        self.tree.selection_set(item_id)
+        self.tree.focus(item_id)
+        
+        # Clear existing menu items
+        self.context_menu.delete(0, tk.END)
+        
+        # Get metadata for this item
+        metadata = self.item_metadata.get(item_id, {})
+        pdf_paths = metadata.get('pdf_paths', [])
+        eml_path = metadata.get('eml_path')
+        
+        # Determine which menu items to show based on available files
+        has_pdf = bool(pdf_paths and any(os.path.isfile(p) for p in pdf_paths))
+        has_eml = bool(eml_path and os.path.isfile(eml_path))
+        
+        # Add menu items based on availability
+        if has_pdf:
+            self.context_menu.add_command(
+                label="Otwórz PDF",
+                command=lambda: self._open_pdf_from_context_menu(item_id)
+            )
+        
+        if has_eml:
+            self.context_menu.add_command(
+                label="Otwórz Email",
+                command=lambda: self._open_email_from_context_menu(item_id)
+            )
+        
+        # Show menu only if at least one option is available
+        if has_pdf or has_eml:
+            # Display the menu at cursor position
+            try:
+                self.context_menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                # Make sure to release the grab
+                self.context_menu.grab_release()
+        else:
+            # No files available, show informational message
+            messagebox.showinfo(
+                "Brak plików",
+                "Nie znaleziono plików PDF ani Email dla tej pozycji."
+            )
+    
+    def _open_pdf_from_context_menu(self, item_id):
+        """
+        Open PDF file from context menu
+        
+        Args:
+            item_id: Treeview item ID
+        """
+        metadata = self.item_metadata.get(item_id, {})
+        pdf_paths = metadata.get('pdf_paths', [])
+        
+        if not pdf_paths:
+            messagebox.showwarning("Ostrzeżenie", "Nie znaleziono ścieżki do pliku PDF")
+            return
+        
+        # Find the first existing PDF file
+        pdf_path = None
+        for path in pdf_paths:
+            if os.path.isfile(path):
+                pdf_path = path
+                break
+        
+        if not pdf_path:
+            messagebox.showerror(
+                "Błąd",
+                f"Plik PDF nie istnieje:\n{pdf_paths[0]}"
+            )
+            log(f"PDF file not found: {pdf_paths[0]}", level="ERROR")
+            return
+        
+        try:
+            self._open_file_with_system_app(pdf_path)
+            log(f"Opened PDF via context menu: {pdf_path}")
+        except Exception as e:
+            error_msg = f"Nie udało się otworzyć pliku PDF:\n\nŚcieżka: {pdf_path}\n\nBłąd: {str(e)}"
+            log(f"Error opening PDF via context menu: {e}", level="ERROR")
+            messagebox.showerror("Błąd", error_msg)
+    
+    def _open_email_from_context_menu(self, item_id):
+        """
+        Open EML file from context menu
+        
+        Args:
+            item_id: Treeview item ID
+        """
+        metadata = self.item_metadata.get(item_id, {})
+        eml_path = metadata.get('eml_path')
+        
+        if not eml_path:
+            messagebox.showwarning("Ostrzeżenie", "Nie znaleziono ścieżki do pliku Email")
+            return
+        
+        if not os.path.isfile(eml_path):
+            messagebox.showerror(
+                "Błąd",
+                f"Plik Email nie istnieje:\n{eml_path}"
+            )
+            log(f"EML file not found: {eml_path}", level="ERROR")
+            return
+        
+        try:
+            self._open_file_with_system_app(eml_path)
+            log(f"Opened EML via context menu: {eml_path}")
+        except Exception as e:
+            error_msg = f"Nie udało się otworzyć pliku Email:\n\nŚcieżka: {eml_path}\n\nBłąd: {str(e)}"
+            log(f"Error opening EML via context menu: {e}", level="ERROR")
+            messagebox.showerror("Błąd", error_msg)
+    
     def open_attachment(self):
         """Open the selected message's PDF attachment"""
         selection = self.tree.selection()
@@ -422,15 +555,28 @@ class ZnalezioneWindow:
             log("No PDF path found for selected item", level="WARNING")
             return
         
-        # Open the first PDF (or only PDF)
-        pdf_path = pdf_paths[0]
+        # Find the first existing PDF file
+        pdf_path = None
+        for path in pdf_paths:
+            if os.path.isfile(path):
+                pdf_path = path
+                break
+        
+        if not pdf_path:
+            messagebox.showerror(
+                "Błąd",
+                f"Plik PDF nie istnieje:\n{pdf_paths[0]}"
+            )
+            log(f"PDF file not found: {pdf_paths[0]}", level="ERROR")
+            return
         
         try:
             self._open_file_with_system_app(pdf_path)
             log(f"Opened PDF attachment: {pdf_path}")
         except Exception as e:
+            error_msg = f"Nie udało się otworzyć załącznika PDF:\n\nŚcieżka: {pdf_path}\n\nBłąd: {str(e)}"
             log(f"Error opening PDF attachment: {e}", level="ERROR")
-            messagebox.showerror("Błąd", f"Nie udało się otworzyć załącznika:\n{str(e)}")
+            messagebox.showerror("Błąd", error_msg)
     
     def show_in_mail(self):
         """Show the selected message in the mail client (open .eml file)"""
@@ -445,19 +591,28 @@ class ZnalezioneWindow:
         metadata = self.item_metadata.get(item_id, {})
         eml_path = metadata.get('eml_path')
         
-        if not eml_path or not os.path.isfile(eml_path):
+        if not eml_path:
             messagebox.showwarning("Ostrzeżenie", 
                 "Plik .eml nie jest dostępny.\n\n"
                 "Ta funkcja działa tylko gdy wiadomości są zapisane jako pliki .eml na dysku.")
             log("No EML path found for selected item", level="WARNING")
             return
         
+        if not os.path.isfile(eml_path):
+            messagebox.showerror(
+                "Błąd",
+                f"Plik Email nie istnieje:\n{eml_path}"
+            )
+            log(f"EML file not found: {eml_path}", level="ERROR")
+            return
+        
         try:
             self._open_file_with_system_app(eml_path)
             log(f"Opened EML file: {eml_path}")
         except Exception as e:
+            error_msg = f"Nie udało się otworzyć wiadomości Email:\n\nŚcieżka: {eml_path}\n\nBłąd: {str(e)}"
             log(f"Error opening EML file: {e}", level="ERROR")
-            messagebox.showerror("Błąd", f"Nie udało się otworzyć wiadomości:\n{str(e)}")
+            messagebox.showerror("Błąd", error_msg)
     
     def _open_file_with_system_app(self, file_path):
         """
