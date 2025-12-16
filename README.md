@@ -48,7 +48,14 @@ python main.py
 3. W zakładce "Wyszukiwanie NIP":
    - Wprowadź numer NIP do wyszukania
    - Wybierz folder, w którym mają być zapisane znalezione faktury
-   - Opcjonalnie wybierz zakres przeszukiwania (1 miesiąc, 3 miesiące, 6 miesięcy lub ostatni tydzień)
+   - **Zakres czasowy - wybierz jedną z opcji:**
+     - Opcjonalnie wybierz zakres przeszukiwania (1 miesiąc, 3 miesiące, 6 miesięcy lub ostatni tydzień)
+     - **LUB** użyj własnego zakresu dat za pomocą kalendarzy "Od" i "Do":
+       - Kliknij w pole "Od" aby wybrać datę początkową (opcjonalnie)
+       - Kliknij w pole "Do" aby wybrać datę końcową (domyślnie: dzisiaj)
+       - Data "Od" musi być wcześniejsza lub równa dacie "Do"
+       - Kliknij "Wyczyść zakres" aby zresetować daty
+       - Wybrany zakres będzie wyświetlony nad paskiem postępu
    - Opcjonalnie zaznacz "Zapisz ustawienia" aby zapisać preferencje
    - Kliknij "Szukaj faktur"
    - Podczas wyszukiwania możesz kliknąć "Przerwij" aby zatrzymać operację
@@ -93,6 +100,7 @@ python main.py
 - ✅ Obsługa różnych formatów zapisu NIP (z kreskami i bez)
 - ✅ Możliwość zapisania ustawień do pliku konfiguracyjnego
 - ✅ Filtrowanie wiadomości według zakresu czasowego (1/3/6 miesięcy lub ostatni tydzień)
+- ✅ **Własny zakres dat z kalendarzem "Od - Do"** - precyzyjne określenie zakresu przeszukiwania
 - ✅ Przełączanie widoczności hasła
 - ✅ Ustawianie daty modyfikacji plików zgodnie z datą otrzymania emaila
 - ✅ Zakładka "O programie" z danymi kontaktowymi i wersją aplikacji
@@ -157,6 +165,72 @@ Dodano testy dla metody `_extract_matches`:
 - Testowanie różnych formatów NIP (z kreskami, spacjami, różnymi separatorami)
 
 Uruchom testy: `python tests/test_pdf_extract_matches.py`
+
+## Własny zakres dat (Kalendarz "Od - Do")
+
+Aplikacja oferuje zaawansowane filtrowanie wiadomości email według daty za pomocą kalendarzy "Od" i "Do" w sekcji "Własny zakres dat".
+
+### Jak używać kalendarzy dat
+
+1. **Wybór daty początkowej (Od)**:
+   - Kliknij w pole "Od" aby otworzyć kalendarz
+   - Wybierz datę początkową zakresu
+   - Pole może pozostać puste jeśli chcesz szukać od początku
+
+2. **Wybór daty końcowej (Do)**:
+   - Kliknij w pole "Do" aby otworzyć kalendarz
+   - Wybierz datę końcową zakresu (domyślnie: dzisiejsza data)
+   - Data końcowa włącznie jest uwzględniana w wyszukiwaniu
+
+3. **Czyszczenie zakresu**:
+   - Kliknij przycisk "Wyczyść zakres" aby zresetować daty do wartości domyślnych
+   - Po wyczyszczeniu: "Od" = puste, "Do" = dzisiaj
+
+### Walidacja zakresu dat
+
+- **Data "Od" nie może być późniejsza niż data "Do"**
+  - Jeśli wybierzesz nieprawidłowy zakres, zobaczysz komunikat błędu
+  - Wyszukiwanie zostanie zablokowane dopóki nie poprawisz zakresu
+
+- **Wybrany zakres jest wyświetlany**
+  - Nad paskiem postępu zobaczysz wybrany zakres, np. "Wybrany zakres: Od 2025-01-01 Do 2025-12-31"
+  - Pomaga to w potwierdzeniu poprawności wybranego zakresu
+
+### Priorytet zakresów
+
+- Jeśli wybierzesz **własny zakres dat** (Od/Do), będzie on miał priorytet nad checkboxami (1/3/6 miesięcy)
+- Jeśli **nie wybierzesz własnego zakresu**, zostaną użyte checkboxy
+- Jeśli **nie wybierzesz żadnego zakresu**, przeszukiwane będą wszystkie wiadomości
+
+### Format daty
+
+- Format daty: **YYYY-MM-DD** (ISO 8601)
+- Przykład: 2025-12-16
+- Format jest zgodny ze standardem IMAP i ułatwia sortowanie
+
+### Przykłady użycia
+
+1. **Szukaj faktur z ostatniego miesiąca**:
+   - Od: 2025-11-16 (miesiąc temu)
+   - Do: 2025-12-16 (dzisiaj)
+
+2. **Szukaj faktur z konkretnego kwartału**:
+   - Od: 2025-01-01
+   - Do: 2025-03-31
+
+3. **Szukaj faktur do określonej daty**:
+   - Od: (puste)
+   - Do: 2025-06-30
+
+4. **Szukaj faktur od określonej daty do dziś**:
+   - Od: 2025-06-01
+   - Do: (dzisiejsza data)
+
+### Zapisywanie zakresu dat
+
+- Wybrane daty mogą być zapisane w konfiguracji
+- Zaznacz checkbox "Zapisz ustawienia" aby zapisać zakres dat
+- Zakres będzie automatycznie przywrócony przy następnym uruchomieniu aplikacji
 
 ## Uwagi
 
