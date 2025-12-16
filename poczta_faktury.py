@@ -180,11 +180,26 @@ class EmailInvoiceFinderApp:
         # Separator between mail config and PDF engine settings
         ttk.Separator(self.config_frame, orient='horizontal').grid(row=10, column=0, columnspan=2, sticky='ew', padx=10, pady=20)
         
-        # PDF Engine selection
-        ttk.Label(self.config_frame, text="Silnik PDF:", font=("TkDefaultFont", 10, "bold")).grid(row=11, column=0, columnspan=2, sticky='w', padx=10, pady=(10, 5))
+        # PDF Engine selection - Create a frame to hold both the label and current engine display
+        pdf_header_frame = ttk.Frame(self.config_frame)
+        pdf_header_frame.grid(row=11, column=0, columnspan=2, sticky='w', padx=10, pady=(10, 5))
+        
+        ttk.Label(pdf_header_frame, text="Silnik PDF:", font=("TkDefaultFont", 10, "bold")).pack(side='left')
+        
+        # Display current PDF engine value next to the label
+        current_engine = self.email_config.get('pdf_engine', 'pdfplumber')
+        self.current_engine_label = ttk.Label(
+            pdf_header_frame, 
+            text=f" {current_engine}",
+            font=("TkDefaultFont", 8),
+            foreground='#008000'  # Green color for consistency with previous implementation
+        )
+        self.current_engine_label.pack(side='left', padx=5)
         
         ttk.Label(self.config_frame, text="Wybierz silnik ekstrakcji tekstu:").grid(row=12, column=0, sticky='w', padx=10, pady=5)
         self.pdf_engine_var = tk.StringVar(value='pdfplumber')
+        # Bind callback to update the current engine display when selection changes
+        self.pdf_engine_var.trace_add('write', self._on_pdf_engine_changed)
         pdf_engine_combo = ttk.Combobox(self.config_frame, textvariable=self.pdf_engine_var, 
                                         values=['pdfplumber', 'pdfminer.six'], 
                                         state='readonly', width=37)
@@ -505,6 +520,12 @@ class EmailInvoiceFinderApp:
                     self.date_to_entry.set_date(to_date)
                 except (ValueError, TypeError):
                     pass
+    
+    def _on_pdf_engine_changed(self, *args):
+        """Callback when PDF engine selection changes - updates the current engine display label"""
+        if hasattr(self, 'current_engine_label'):
+            new_engine = self.pdf_engine_var.get()
+            self.current_engine_label.config(text=f" {new_engine}")
     
     def test_connection(self):
         """Testowanie połączenia z serwerem email"""
