@@ -775,6 +775,8 @@ class EmailInvoiceFinderApp:
         Return destination folder: either base_output_folder (when email_dt is None or sorting disabled)
         or base_output_folder/MM.YYYY (e.g. 10.2025). Create directory if it doesn't exist.
         """
+        # Use hasattr for safety: sort_in_folders_var is created in create_search_tab(),
+        # which may not have been called in all contexts (e.g., programmatic use, tests)
         if email_dt is None or not (hasattr(self, 'sort_in_folders_var') and self.sort_in_folders_var.get()):
             dest = base_output_folder
         else:
@@ -794,9 +796,9 @@ class EmailInvoiceFinderApp:
             f.write(attachment_data)
         
         # Set file timestamp from email date
-        timestamp = self._get_email_timestamp(email_message)
-        if timestamp:
-            self._set_file_timestamp(output_path, timestamp)
+        email_dt = self._get_email_timestamp(email_message)
+        if email_dt:
+            self._set_file_timestamp(output_path, email_dt)
     
     def _search_worker(self, params):
         """Worker thread for searching emails - runs in background"""
