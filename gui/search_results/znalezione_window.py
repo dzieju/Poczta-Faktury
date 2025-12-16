@@ -19,6 +19,8 @@ import sys
 import re
 import email
 from email.header import decode_header
+import json
+from pathlib import Path
 
 # Import logger from our local gui module
 try:
@@ -33,6 +35,9 @@ except ImportError:
     log("Warning: EmailSearchEngine not available")
     EmailSearchEngine = None
     search_messages = None
+
+# Config file path constant
+CONFIG_FILE = Path.home() / '.poczta_faktury_config.json'
 
 # Placeholder text for demonstration window
 PLACEHOLDER_TEXT = """To jest okno wyników wyszukiwania \"Znalezione\".
@@ -108,6 +113,36 @@ class ZnalezioneWindow:
         
         log("ZnalezioneWindow initialized")
     
+    def _get_pdf_engine_from_config(self):
+        """
+        Read the PDF engine setting from config file.
+        
+        Returns:
+            str: PDF engine name ('pdfplumber' or 'pdfminer.six'), defaults to 'pdfplumber'
+        """
+        default_engine = 'pdfplumber'
+        
+        # Try to read from config file
+        try:
+            if CONFIG_FILE.exists():
+                with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                    
+                    # Try email_config.pdf_engine first (new format)
+                    engine = config.get('email_config', {}).get('pdf_engine')
+                    if engine:
+                        return engine
+                    
+                    # Fall back to top-level pdf_engine (alternative format)
+                    engine = config.get('pdf_engine')
+                    if engine:
+                        return engine
+        except Exception as e:
+            # Log but don't fail - just use default
+            log(f"Could not read PDF engine from config: {e}", level="WARNING")
+        
+        return default_engine
+    
     def create_widgets(self):
         """Create the UI components"""
         # Top frame with search info and actions
@@ -128,6 +163,16 @@ class ZnalezioneWindow:
             text="Odśwież", 
             command=self.refresh_search
         ).pack(side='right', padx=5)
+        
+        # PDF engine label (shows current engine selection)
+        pdf_engine = self._get_pdf_engine_from_config()
+        self.pdf_engine_label = ttk.Label(
+            top_frame,
+            text=f"Silnik PDF: {pdf_engine}",
+            font=('Arial', 8),
+            foreground='#008000'  # Green color using hex for cross-platform consistency
+        )
+        self.pdf_engine_label.pack(side='right', padx=10)
         
         # Main content frame with paned window (split view)
         paned = ttk.PanedWindow(self.window, orient=tk.VERTICAL)
