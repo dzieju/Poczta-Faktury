@@ -201,18 +201,30 @@ class EmailInvoiceFinderApp:
         if TKCALENDAR_AVAILABLE:
             # Date "Od" (From)
             ttk.Label(date_range_frame, text="Od:").pack(side='left', padx=(0, 5))
-            self.date_from_entry = DateEntry(date_range_frame, width=12, background='darkblue',
-                                             foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd',
-                                             locale='pl_PL', showweeknumbers=False)
+            try:
+                self.date_from_entry = DateEntry(date_range_frame, width=12, background='darkblue',
+                                                 foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd',
+                                                 locale='pl_PL', showweeknumbers=False)
+            except Exception:
+                # Fallback to default locale if pl_PL is not available
+                self.date_from_entry = DateEntry(date_range_frame, width=12, background='darkblue',
+                                                 foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd',
+                                                 showweeknumbers=False)
             self.date_from_entry.pack(side='left', padx=5)
             # Set to None initially (will be handled in validation)
             self.date_from_entry.delete(0, tk.END)
             
             # Date "Do" (To)
             ttk.Label(date_range_frame, text="Do:").pack(side='left', padx=(10, 5))
-            self.date_to_entry = DateEntry(date_range_frame, width=12, background='darkblue',
-                                           foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd',
-                                           locale='pl_PL', showweeknumbers=False)
+            try:
+                self.date_to_entry = DateEntry(date_range_frame, width=12, background='darkblue',
+                                               foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd',
+                                               locale='pl_PL', showweeknumbers=False)
+            except Exception:
+                # Fallback to default locale if pl_PL is not available
+                self.date_to_entry = DateEntry(date_range_frame, width=12, background='darkblue',
+                                               foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd',
+                                               showweeknumbers=False)
             self.date_to_entry.pack(side='left', padx=5)
             # Set to today by default
             self.date_to_entry.set_date(date.today())
@@ -1201,6 +1213,8 @@ class EmailInvoiceFinderApp:
         
         This method blocks the GUI during search. For GUI usage, use start_search_thread() instead.
         Kept for backwards compatibility and programmatic/testing usage.
+        
+        Replacement: Use start_search_thread() for non-blocking GUI searches
         """
         nip = self.nip_entry.get().strip()
         output_folder = self.folder_entry.get().strip()
@@ -1269,7 +1283,7 @@ class EmailInvoiceFinderApp:
             messagebox.showerror("Błąd", f"Wystąpił błąd podczas wyszukiwania:\n{str(e)}")
     
     def search_with_imap(self, nip, output_folder):
-        """Wyszukiwanie przez IMAP"""
+        """DEPRECATED: Wyszukiwanie przez IMAP (use _search_with_imap_threaded instead)"""
         found_count = 0
         cutoff_dt = None  # No cutoff date in deprecated method
         
@@ -1384,7 +1398,7 @@ class EmailInvoiceFinderApp:
         return found_count
     
     def search_with_pop3(self, nip, output_folder):
-        """Wyszukiwanie przez POP3"""
+        """DEPRECATED: Wyszukiwanie przez POP3 (use _search_with_pop3_threaded instead)"""
         found_count = 0
         cutoff_dt = None  # No cutoff date in deprecated method
         
