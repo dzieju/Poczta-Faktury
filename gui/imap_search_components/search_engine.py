@@ -65,17 +65,14 @@ def _normalize_date_range(criteria):
     date_from = criteria.get('date_from')
     date_to = criteria.get('date_to')
     
-    # If explicit dates provided, use them
-    if date_from or date_to:
-        # Normalize to start/end of day
-        if date_from and hasattr(date_from, 'replace'):
-            date_from = date_from.replace(hour=0, minute=0, second=0, microsecond=0)
-        if date_to and hasattr(date_to, 'replace'):
-            date_to = date_to.replace(hour=23, minute=59, second=59, microsecond=999999)
-        return (date_from, date_to)
+    # Normalize dates if provided
+    if date_from and hasattr(date_from, 'replace'):
+        date_from = date_from.replace(hour=0, minute=0, second=0, microsecond=0)
+    if date_to and hasattr(date_to, 'replace'):
+        date_to = date_to.replace(hour=23, minute=59, second=59, microsecond=999999)
     
-    # No date filtering
-    return (None, None)
+    # Return the dates (may be None if not provided)
+    return (date_from, date_to)
 
 
 def imap_search_uids_for_date_range(imap_conn, folder, date_from, date_to, extra_criteria=None):

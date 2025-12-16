@@ -199,20 +199,40 @@ class EmailInvoiceFinderApp:
         date_range_frame.grid(row=2, column=0, columnspan=2, sticky='ew', padx=10, pady=5)
         
         if TKCALENDAR_AVAILABLE:
+            # Try to use Polish locale, fallback to default if not available
+            try:
+                # Test if pl_PL locale is available
+                test_widget = DateEntry(date_range_frame, locale='pl_PL')
+                test_widget.destroy()
+                calendar_locale = 'pl_PL'
+            except Exception:
+                # Fallback to default locale if pl_PL is not available
+                calendar_locale = None
+            
             # Date "Od" (From)
             ttk.Label(date_range_frame, text="Od:").pack(side='left', padx=(0, 5))
-            self.date_from_entry = DateEntry(date_range_frame, width=12, background='darkblue',
-                                             foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd',
-                                             locale='pl_PL', showweeknumbers=False)
+            if calendar_locale:
+                self.date_from_entry = DateEntry(date_range_frame, width=12, background='darkblue',
+                                                 foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd',
+                                                 locale=calendar_locale, showweeknumbers=False)
+            else:
+                self.date_from_entry = DateEntry(date_range_frame, width=12, background='darkblue',
+                                                 foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd',
+                                                 showweeknumbers=False)
             self.date_from_entry.pack(side='left', padx=5)
             # Set to None initially (will be handled in validation)
             self.date_from_entry.delete(0, tk.END)
             
             # Date "Do" (To)
             ttk.Label(date_range_frame, text="Do:").pack(side='left', padx=(10, 5))
-            self.date_to_entry = DateEntry(date_range_frame, width=12, background='darkblue',
-                                           foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd',
-                                           locale='pl_PL', showweeknumbers=False)
+            if calendar_locale:
+                self.date_to_entry = DateEntry(date_range_frame, width=12, background='darkblue',
+                                               foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd',
+                                               locale=calendar_locale, showweeknumbers=False)
+            else:
+                self.date_to_entry = DateEntry(date_range_frame, width=12, background='darkblue',
+                                               foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd',
+                                               showweeknumbers=False)
             self.date_to_entry.pack(side='left', padx=5)
             # Set to today by default
             self.date_to_entry.set_date(date.today())
@@ -823,10 +843,11 @@ class EmailInvoiceFinderApp:
             self.root.after(0, self._restore_ui_after_search)
     
     def _get_cutoff_datetime(self):
-        """DEPRECATED: Obliczanie daty granicznej - używaj validate_date_range() zamiast tego
+        """DEPRECATED: Obliczanie daty granicznej - używaj date_from_entry/date_to_entry zamiast tego
         
         Ta metoda jest zachowana dla kompatybilności wstecznej z deprecated metodami.
-        Nowe implementacje powinny używać kalendarza date_from_entry/date_to_entry.
+        Nowe implementacje powinny bezpośrednio używać kalendarza date_from_entry/date_to_entry
+        wraz z validate_date_range() do walidacji.
         """
         # Zwróć date_from z kalendarza jeśli jest dostępna
         if TKCALENDAR_AVAILABLE and hasattr(self, 'date_from_entry') and self.date_from_entry:
