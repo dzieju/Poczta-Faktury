@@ -9,6 +9,8 @@ import os
 import re
 import tempfile
 import sys
+import json
+from pathlib import Path
 
 # Normalization pattern for text matching (removes spaces, dashes, special chars)
 NORMALIZATION_PATTERN = r'[\s\-_./\\]+'
@@ -45,10 +47,72 @@ class PDFProcessor:
     
     def __init__(self):
         self.search_cancelled = False
+        self._config_file = Path.home() / '.poczta_faktury_config.json'
+        self._resolved_engine = None  # Cache for resolved engine choice
     
     def cancel_search(self):
         """Cancel ongoing PDF processing"""
         self.search_cancelled = True
+    
+    def _get_configured_engine(self):
+        """
+        Read PDF engine configuration from config file and determine which engine to use.
+        
+        Returns:
+            str: The resolved engine name ('pdfplumber', 'pdfminer', or 'ocr')
+        """
+        # Return cached value if already resolved
+        if self._resolved_engine:
+            return self._resolved_engine
+        
+        # Try to read config file
+        configured_engine = None
+        try:
+            if self._config_file.exists():
+                with open(self._config_file, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                    configured_engine = config.get('email_config', {}).get('pdf_engine')
+                    if configured_engine:
+                        log(f"PDF engine from config: {configured_engine}")
+        except Exception as e:
+            log(f"Could not read PDF engine config (using defaults): {e}")
+        
+        # Determine the engine to use based on config and availability
+        resolved = None
+        if configured_engine == 'pdfminer.six':
+            # User wants pdfminer.six - we'll use text extraction path
+            resolved = 'pdfminer'
+            log("Resolved engine: pdfminer.six (text extraction path)")
+        elif configured_engine == 'pdfplumber':
+            if HAVE_PDFPLUMBER:
+                resolved = 'pdfplumber'
+                log("Resolved engine: pdfplumber")
+            else:
+                log("pdfplumber requested but not available, falling back")
+        elif configured_engine == 'ocr':
+            if HAVE_OCR:
+                resolved = 'ocr'
+                log("Resolved engine: OCR (pytesseract)")
+            else:
+                log("OCR requested but not available, falling back")
+        
+        # If not resolved yet, use default fallback logic
+        if not resolved:
+            if not configured_engine:
+                log("No PDF engine configured, using defaults")
+            
+            if HAVE_PDFPLUMBER:
+                resolved = 'pdfplumber'
+                log("Defaulting to pdfplumber")
+            elif HAVE_OCR:
+                resolved = 'ocr'
+                log("Defaulting to OCR")
+            else:
+                resolved = 'pdfminer'
+                log("Defaulting to pdfminer.six (text extraction)")
+        
+        self._resolved_engine = resolved
+        return resolved
     
     def search_in_pdf_attachment(self, attachment, search_text, attachment_name=""):
         """
@@ -93,17 +157,33 @@ class PDFProcessor:
         
         log(f"Wyszukiwanie '{search_text}' w załączniku PDF: {attachment_name}")
         
+        # Determine and log the resolved PDF engine
+        resolved_engine = self._get_configured_engine()
+        log(f"Using PDF engine: {resolved_engine} (HAVE_PDFPLUMBER={HAVE_PDFPLUMBER}, HAVE_OCR={HAVE_OCR})")
+        
         try:
-            # First try text extraction (faster) if available
-            if HAVE_PDFPLUMBER:
-                result = self._search_with_text_extraction(pdf_content, search_text_lower, attachment_name)
-                if result['found']:
+            # Use the resolved engine based on config
+            if resolved_engine == 'ocr':
+                # User prefers OCR, try OCR first
+                if HAVE_OCR:
+                    result = self._search_with_ocr(pdf_content, search_text_lower, attachment_name)
+                    if result['found']:
+                        return result
+                # Fallback to text extraction if OCR finds nothing
+                if HAVE_PDFPLUMBER and not self.search_cancelled:
+                    result = self._search_with_text_extraction(pdf_content, search_text_lower, attachment_name)
                     return result
-            
-            # If text extraction fails or finds nothing, try OCR if available
-            if HAVE_OCR and not self.search_cancelled:
-                result = self._search_with_ocr(pdf_content, search_text_lower, attachment_name)
-                return result
+            else:
+                # For both 'pdfplumber' and 'pdfminer', try text extraction first
+                if HAVE_PDFPLUMBER:
+                    result = self._search_with_text_extraction(pdf_content, search_text_lower, attachment_name)
+                    if result['found']:
+                        return result
+                
+                # If text extraction fails or finds nothing, try OCR if available
+                if HAVE_OCR and not self.search_cancelled:
+                    result = self._search_with_ocr(pdf_content, search_text_lower, attachment_name)
+                    return result
                 
         except Exception as e:
             log(f"Error searching PDF {attachment_name}: {str(e)}")
@@ -117,6 +197,7 @@ class PDFProcessor:
             return {'found': False, 'matches': [], 'method': 'pdfplumber_not_available'}
             
         try:
+            log(f"Executing text extraction using pdfplumber for {attachment_name}")
             log(f"Próba ekstrakcji tekstu z PDF: {attachment_name}")
             
             # Use pdfplumber to extract text
@@ -161,6 +242,7 @@ class PDFProcessor:
             return {'found': False, 'matches': [], 'method': 'ocr_not_available'}
             
         try:
+            log(f"Executing OCR using pytesseract for {attachment_name}")
             log(f"Próba OCR z PDF: {attachment_name}")
             
             # Try to detect poppler path (Windows-specific, but won't break on Linux)
