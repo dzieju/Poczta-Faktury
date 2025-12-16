@@ -259,9 +259,15 @@ class EmailInvoiceFinderApp:
         ttk.Checkbutton(self.search_frame, text="Zapisz ustawienia", 
                        variable=self.save_search_config_var).grid(row=4, column=0, columnspan=2, padx=10, pady=5)
         
+        # Sortuj w folderach - checkbox umieszczony w zakładce "Wyszukiwanie NIP"
+        # Gdy zaznaczony, podczas zapisu wyników utworzone zostaną podfoldery MM.YYYY (np. 10.2025)
+        self.sort_in_folders_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(self.search_frame, text="Sortuj w folderach", 
+                       variable=self.sort_in_folders_var).grid(row=5, column=0, columnspan=2, padx=10, pady=5, sticky='w')
+        
         # Przyciski wyszukiwania
         button_frame = ttk.Frame(self.search_frame)
-        button_frame.grid(row=5, column=0, columnspan=2, pady=20)
+        button_frame.grid(row=6, column=0, columnspan=2, pady=20)
         
         self.search_button = ttk.Button(button_frame, text="Szukaj faktur", 
                    command=self.start_search_thread)
@@ -743,26 +749,44 @@ class EmailInvoiceFinderApp:
         self.stop_button.config(state='disabled')
     
     def _get_email_timestamp(self, email_message):
-        """Extract timestamp from email Date header, return epoch time or None"""
+        """Extract timestamp from email Date header, return datetime or None"""
         try:
             date_header = email_message.get('Date')
             if date_header:
                 email_dt = parsedate_to_datetime(date_header)
-                # Convert to epoch timestamp
-                return email_dt.timestamp()
+                return email_dt
         except (TypeError, ValueError, AttributeError) as e:
             pass
         return None
     
-    def _set_file_timestamp(self, file_path, timestamp):
-        """Set file mtime and atime to given timestamp"""
-        if timestamp:
+    def _set_file_timestamp(self, file_path, dt):
+        """Set file mtime and atime to given datetime"""
+        if dt:
             try:
+                timestamp = dt.timestamp()
                 os.utime(file_path, (timestamp, timestamp))
-            except (OSError, PermissionError) as e:
+            except (OSError, PermissionError, AttributeError) as e:
                 # Log warning but don't fail - timestamp setting is not critical
                 # Some filesystems or permissions may prevent timestamp modification
                 self.safe_log(f"Ostrzeżenie: Nie można ustawić timestampu dla {os.path.basename(file_path)}")
+    
+    def _ensure_dir_for_email_date(self, base_output_folder, email_dt):
+        """
+        Return destination folder: either base_output_folder (when email_dt is None or sorting disabled)
+        or base_output_folder/MM.YYYY (e.g. 10.2025). Create directory if it doesn't exist.
+        """
+        if email_dt is None or not (hasattr(self, 'sort_in_folders_var') and self.sort_in_folders_var.get()):
+            dest = base_output_folder
+        else:
+            sub = f"{email_dt.month:02d}.{email_dt.year}"
+            dest = os.path.join(base_output_folder, sub)
+        try:
+            os.makedirs(dest, exist_ok=True)
+        except Exception as e:
+            # In case of error, use base folder
+            self.safe_log(f"Ostrzeżenie: nie można utworzyć folderu {dest}: {e}")
+            dest = base_output_folder
+        return dest
     
     def _save_attachment_with_timestamp(self, attachment_data, output_path, email_message):
         """Save attachment and set its timestamp from email date"""
@@ -995,26 +1019,34 @@ class EmailInvoiceFinderApp:
                             if self.search_nip_in_text(pdf_text, nip):
                                 found_count += 1
                                 
+                                # Get email timestamp
+                                email_dt = self._get_email_timestamp(email_message)
+                                
+                                # Determine destination folder (base or MM.YYYY subfolder)
+                                dest_folder = self._ensure_dir_for_email_date(output_folder, email_dt)
+                                
                                 # Save PDF file with timestamp
                                 safe_filename = self.make_safe_filename(filename)
-                                output_path = os.path.join(output_folder, f"{found_count}_{safe_filename}")
+                                output_path = os.path.join(dest_folder, f"{found_count}_{safe_filename}")
                                 
-                                self._save_attachment_with_timestamp(
-                                    part.get_payload(decode=True), 
-                                    output_path, 
-                                    email_message
-                                )
+                                try:
+                                    with open(output_path, 'wb') as out_f:
+                                        out_f.write(part.get_payload(decode=True))
+                                    # Set file timestamp from email date (if available)
+                                    if email_dt:
+                                        self._set_file_timestamp(output_path, email_dt)
+                                except Exception as e:
+                                    self.safe_log(f"Ostrzeżenie: Nie można zapisać PDF: {e}")
                                 
                                 # Also save the complete email as .eml file
                                 eml_filename = f"{found_count}_email.eml"
-                                eml_path = os.path.join(output_folder, eml_filename)
+                                eml_path = os.path.join(dest_folder, eml_filename)
                                 try:
                                     with open(eml_path, 'wb') as eml_file:
                                         eml_file.write(email_body)
                                     # Set timestamp on EML file too
-                                    timestamp = self._get_email_timestamp(email_message)
-                                    if timestamp:
-                                        self._set_file_timestamp(eml_path, timestamp)
+                                    if email_dt:
+                                        self._set_file_timestamp(eml_path, email_dt)
                                 except Exception as e:
                                     self.safe_log(f"Ostrzeżenie: Nie można zapisać pliku .eml: {e}")
                                 
@@ -1116,26 +1148,34 @@ class EmailInvoiceFinderApp:
                             if self.search_nip_in_text(pdf_text, nip):
                                 found_count += 1
                                 
+                                # Get email timestamp
+                                email_dt = self._get_email_timestamp(email_message)
+                                
+                                # Determine destination folder (base or MM.YYYY subfolder)
+                                dest_folder = self._ensure_dir_for_email_date(output_folder, email_dt)
+                                
                                 # Save PDF file with timestamp
                                 safe_filename = self.make_safe_filename(filename)
-                                output_path = os.path.join(output_folder, f"{found_count}_{safe_filename}")
+                                output_path = os.path.join(dest_folder, f"{found_count}_{safe_filename}")
                                 
-                                self._save_attachment_with_timestamp(
-                                    part.get_payload(decode=True), 
-                                    output_path, 
-                                    email_message
-                                )
+                                try:
+                                    with open(output_path, 'wb') as out_f:
+                                        out_f.write(part.get_payload(decode=True))
+                                    # Set file timestamp from email date (if available)
+                                    if email_dt:
+                                        self._set_file_timestamp(output_path, email_dt)
+                                except Exception as e:
+                                    self.safe_log(f"Ostrzeżenie: Nie można zapisać PDF: {e}")
                                 
                                 # Also save the complete email as .eml file
                                 eml_filename = f"{found_count}_email.eml"
-                                eml_path = os.path.join(output_folder, eml_filename)
+                                eml_path = os.path.join(dest_folder, eml_filename)
                                 try:
                                     with open(eml_path, 'wb') as eml_file:
                                         eml_file.write(email_body)
                                     # Set timestamp on EML file too
-                                    timestamp = self._get_email_timestamp(email_message)
-                                    if timestamp:
-                                        self._set_file_timestamp(eml_path, timestamp)
+                                    if email_dt:
+                                        self._set_file_timestamp(eml_path, email_dt)
                                 except Exception as e:
                                     self.safe_log(f"Ostrzeżenie: Nie można zapisać pliku .eml: {e}")
                                 

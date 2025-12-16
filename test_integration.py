@@ -220,6 +220,91 @@ def test_file_operations():
         
         return True
 
+def test_folder_sorting():
+    """Test folder sorting feature with MM.YYYY subfolders"""
+    print("\nIntegration Test: Folder Sorting")
+    print("=" * 60)
+    
+    from datetime import datetime
+    from email.utils import parsedate_to_datetime
+    
+    with tempfile.TemporaryDirectory() as tmpdir:
+        print(f"Created temporary directory: {tmpdir}")
+        
+        # Create a test email with specific date
+        msg = MIMEMultipart()
+        msg['From'] = 'test@example.com'
+        msg['To'] = 'recipient@example.com'
+        msg['Subject'] = 'Test Invoice'
+        # Set specific date: October 15, 2025
+        test_date = datetime(2025, 10, 15, 12, 0, 0)
+        msg['Date'] = email.utils.formatdate(timeval=test_date.timestamp(), localtime=False)
+        
+        msg.attach(MIMEText("Test body", 'plain'))
+        
+        # Test parsing date from email
+        date_header = msg.get('Date')
+        email_dt = parsedate_to_datetime(date_header)
+        
+        if email_dt is None:
+            print(f"  ✗ Failed to parse email date")
+            return False
+        
+        print(f"  ✓ Successfully parsed email date: {email_dt.strftime('%Y-%m-%d')}")
+        
+        # Test subfolder creation
+        subfolder_name = f"{email_dt.month:02d}.{email_dt.year}"
+        expected_subfolder = os.path.join(tmpdir, subfolder_name)
+        
+        if subfolder_name != "10.2025":
+            print(f"  ✗ Expected subfolder name '10.2025', got '{subfolder_name}'")
+            return False
+        
+        print(f"  ✓ Correct subfolder name generated: {subfolder_name}")
+        
+        # Create the subfolder
+        os.makedirs(expected_subfolder, exist_ok=True)
+        
+        if not os.path.exists(expected_subfolder):
+            print(f"  ✗ Subfolder was not created: {expected_subfolder}")
+            return False
+        
+        print(f"  ✓ Subfolder created successfully: {expected_subfolder}")
+        
+        # Test file timestamp setting
+        test_file_path = os.path.join(expected_subfolder, "test.pdf")
+        with open(test_file_path, 'wb') as f:
+            f.write(b"test content")
+        
+        # Set timestamp
+        timestamp = email_dt.timestamp()
+        os.utime(test_file_path, (timestamp, timestamp))
+        
+        file_mtime = os.path.getmtime(test_file_path)
+        
+        # Allow 1 second difference for rounding
+        if abs(file_mtime - timestamp) > 1:
+            print(f"  ✗ File timestamp mismatch: expected {timestamp}, got {file_mtime}")
+            return False
+        
+        print(f"  ✓ File timestamp correctly set to email date")
+        
+        # Test creating EML with same logic
+        eml_path = os.path.join(expected_subfolder, "1_email.eml")
+        with open(eml_path, 'wb') as f:
+            f.write(msg.as_bytes())
+        
+        os.utime(eml_path, (timestamp, timestamp))
+        
+        if not os.path.exists(eml_path):
+            print(f"  ✗ EML file not created")
+            return False
+        
+        print(f"  ✓ EML file created and timestamped in subfolder")
+        
+        print("\n  ✓ Folder sorting test passed")
+        return True
+
 def main():
     """Run integration tests"""
     print("=" * 60)
@@ -229,6 +314,7 @@ def main():
     tests = [
         ("Load Results from Folder", test_load_results_from_folder),
         ("File Operations", test_file_operations),
+        ("Folder Sorting", test_folder_sorting),
     ]
     
     results = []
