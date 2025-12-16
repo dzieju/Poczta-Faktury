@@ -80,8 +80,9 @@ class PDFProcessor:
         # Determine the engine to use based on config and availability
         resolved = None
         if configured_engine == 'pdfminer.six':
-            # User wants pdfminer.six - we'll use text extraction path
-            resolved = 'pdfminer'
+            # User wants pdfminer.six - we'll use text extraction path (pdfplumber internally)
+            # Note: 'pdfminer' is used as the resolved name for internal tracking
+            resolved = 'pdfminer.six'
             log("Resolved engine: pdfminer.six (text extraction path)")
         elif configured_engine == 'pdfplumber':
             if HAVE_PDFPLUMBER:
@@ -108,7 +109,7 @@ class PDFProcessor:
                 resolved = 'ocr'
                 log("Defaulting to OCR")
             else:
-                resolved = 'pdfminer'
+                resolved = 'pdfminer.six'
                 log("Defaulting to pdfminer.six (text extraction)")
         
         self._resolved_engine = resolved
