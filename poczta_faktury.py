@@ -1029,14 +1029,11 @@ class EmailInvoiceFinderApp:
                                 safe_filename = self.make_safe_filename(filename)
                                 output_path = os.path.join(dest_folder, f"{found_count}_{safe_filename}")
                                 
-                                try:
-                                    with open(output_path, 'wb') as out_f:
-                                        out_f.write(part.get_payload(decode=True))
-                                    # Set file timestamp from email date (if available)
-                                    if email_dt:
-                                        self._set_file_timestamp(output_path, email_dt)
-                                except Exception as e:
-                                    self.safe_log(f"Ostrzeżenie: Nie można zapisać PDF: {e}")
+                                self._save_attachment_with_timestamp(
+                                    part.get_payload(decode=True), 
+                                    output_path, 
+                                    email_message
+                                )
                                 
                                 # Also save the complete email as .eml file
                                 eml_filename = f"{found_count}_email.eml"
@@ -1158,14 +1155,11 @@ class EmailInvoiceFinderApp:
                                 safe_filename = self.make_safe_filename(filename)
                                 output_path = os.path.join(dest_folder, f"{found_count}_{safe_filename}")
                                 
-                                try:
-                                    with open(output_path, 'wb') as out_f:
-                                        out_f.write(part.get_payload(decode=True))
-                                    # Set file timestamp from email date (if available)
-                                    if email_dt:
-                                        self._set_file_timestamp(output_path, email_dt)
-                                except Exception as e:
-                                    self.safe_log(f"Ostrzeżenie: Nie można zapisać PDF: {e}")
+                                self._save_attachment_with_timestamp(
+                                    part.get_payload(decode=True), 
+                                    output_path, 
+                                    email_message
+                                )
                                 
                                 # Also save the complete email as .eml file
                                 eml_filename = f"{found_count}_email.eml"
