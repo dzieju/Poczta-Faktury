@@ -19,7 +19,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-### 3. Konfiguracja poczty / Email Configuration
+### 3. Ustawienia / Settings
 
 #### Przykład dla Gmail:
 - **Protokół**: IMAP
@@ -95,7 +95,7 @@ Przykładowe nazwy zapisanych plików:
 
 ## Wskazówki / Tips
 
-1. **Pierwsze użycie**: Zacznij od przetestowania połączenia w zakładce "Konfiguracja poczty"
+1. **Pierwsze użycie**: Zacznij od przetestowania połączenia w zakładce "Ustawienia"
 2. **Duża skrzynka**: Jeśli masz dużo wiadomości, wyszukiwanie może zająć kilka minut
 3. **Backup**: Zalecane jest regularne tworzenie kopii zapasowych znalezionych faktur
 4. **Organizacja**: Twórz osobne foldery dla różnych kontrahentów/NIPów

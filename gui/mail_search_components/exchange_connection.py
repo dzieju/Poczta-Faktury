@@ -56,7 +56,7 @@ class ExchangeConnection:
                 config = json.load(f)
                 return config
         except FileNotFoundError:
-            messagebox.showerror("Błąd konfiguracji", "Brak konfiguracji poczty. Skonfiguruj połączenie w zakładce 'Konfiguracja poczty'.")
+            messagebox.showerror("Błąd konfiguracji", "Brak konfiguracji poczty. Skonfiguruj połączenie w zakładce 'Ustawienia'.")
             return None
         except Exception as e:
             messagebox.showerror("Błąd konfiguracji", f"Błąd odczytu konfiguracji: {str(e)}")

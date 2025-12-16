@@ -65,7 +65,8 @@ class EmailInvoiceFinderApp:
             'email': '',
             'password': '',
             'use_ssl': True,
-            'save_email_settings': False
+            'save_email_settings': False,
+            'pdf_engine': 'pdfplumber'  # PDF engine: pdfplumber or pdfminer.six
         }
         
         # Ustawienia wyszukiwania
@@ -96,9 +97,9 @@ class EmailInvoiceFinderApp:
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill='both', expand=True, padx=10, pady=10)
         
-        # Zakładka 1: Konfiguracja email
+        # Zakładka 1: Ustawienia (poprzednio: Konfiguracja email)
         self.config_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.config_frame, text="Konfiguracja poczty")
+        self.notebook.add(self.config_frame, text="Ustawienia")
         self.create_email_config_tab()
         
         # Zakładka 2: Wyszukiwanie NIP
@@ -172,6 +173,19 @@ class EmailInvoiceFinderApp:
         # Status
         self.status_label = ttk.Label(self.config_frame, text="", foreground="blue")
         self.status_label.grid(row=9, column=0, columnspan=2, padx=10, pady=5)
+        
+        # Separator between mail config and PDF engine settings
+        ttk.Separator(self.config_frame, orient='horizontal').grid(row=10, column=0, columnspan=2, sticky='ew', padx=10, pady=20)
+        
+        # PDF Engine selection
+        ttk.Label(self.config_frame, text="Silnik PDF:", font=("TkDefaultFont", 10, "bold")).grid(row=11, column=0, columnspan=2, sticky='w', padx=10, pady=(10, 5))
+        
+        ttk.Label(self.config_frame, text="Wybierz silnik ekstrakcji tekstu:").grid(row=12, column=0, sticky='w', padx=10, pady=5)
+        self.pdf_engine_var = tk.StringVar(value='pdfplumber')
+        pdf_engine_combo = ttk.Combobox(self.config_frame, textvariable=self.pdf_engine_var, 
+                                        values=['pdfplumber', 'pdfminer.six'], 
+                                        state='readonly', width=37)
+        pdf_engine_combo.grid(row=12, column=1, sticky='ew', padx=10, pady=5)
         
         self.config_frame.columnconfigure(1, weight=1)
     
@@ -400,7 +414,8 @@ class EmailInvoiceFinderApp:
                 'email': self.email_entry.get(),
                 'password': self.password_entry.get() if self.save_email_config_var.get() else '',
                 'use_ssl': self.ssl_var.get(),
-                'save_email_settings': self.save_email_config_var.get()
+                'save_email_settings': self.save_email_config_var.get(),
+                'pdf_engine': self.pdf_engine_var.get() if hasattr(self, 'pdf_engine_var') else 'pdfplumber'
             },
             'search_config': {
                 'nip': self.nip_entry.get() if self.save_search_config_var.get() else '',
@@ -460,6 +475,8 @@ class EmailInvoiceFinderApp:
             self.ssl_var.set(self.email_config['use_ssl'])
         if 'save_email_settings' in self.email_config:
             self.save_email_config_var.set(self.email_config['save_email_settings'])
+        if self.email_config.get('pdf_engine') and hasattr(self, 'pdf_engine_var'):
+            self.pdf_engine_var.set(self.email_config['pdf_engine'])
         
         # Konfiguracja wyszukiwania
         if self.search_config.get('nip'):
@@ -536,7 +553,8 @@ class EmailInvoiceFinderApp:
                 'email': email_addr,
                 'password': password,
                 'use_ssl': use_ssl,
-                'save_email_settings': self.save_email_config_var.get()
+                'save_email_settings': self.save_email_config_var.get(),
+                'pdf_engine': self.pdf_engine_var.get() if hasattr(self, 'pdf_engine_var') else 'pdfplumber'
             }
             
             # Zapisz do pliku jeśli zaznaczono checkbox
@@ -1159,17 +1177,27 @@ class EmailInvoiceFinderApp:
         """Ekstrakcja tekstu z pliku PDF"""
         text = ""
         
-        # Próba z pdfplumber
-        try:
-            with pdfplumber.open(pdf_path) as pdf:
-                for page in pdf.pages:
-                    page_text = page.extract_text()
-                    if page_text:
-                        text += page_text + "\n"
-        except Exception as e:
-            print(f"Błąd pdfplumber: {e}")
+        # Get selected PDF engine from config
+        pdf_engine = self.email_config.get('pdf_engine', 'pdfplumber')
         
-        # Jeśli pdfplumber nie zadziałał, spróbuj PyPDF2
+        # Try with selected engine first
+        if pdf_engine == 'pdfminer.six':
+            try:
+                from pdfminer.high_level import extract_text as pdfminer_extract_text
+                text = pdfminer_extract_text(pdf_path)
+            except Exception as e:
+                print(f"Błąd pdfminer.six: {e}")
+        else:  # Default to pdfplumber
+            try:
+                with pdfplumber.open(pdf_path) as pdf:
+                    for page in pdf.pages:
+                        page_text = page.extract_text()
+                        if page_text:
+                            text += page_text + "\n"
+            except Exception as e:
+                print(f"Błąd pdfplumber: {e}")
+        
+        # Jeśli wybrany silnik nie zadziałał, spróbuj PyPDF2 jako fallback
         if not text:
             try:
                 with open(pdf_path, 'rb') as file:

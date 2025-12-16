@@ -8,6 +8,7 @@
 # Core dependencies for PDF processing
 PyPDF2>=3.0.0
 pdfplumber>=0.10.0
+pdfminer.six>=20221105
 
 # Optional Windows-specific support
 pywin32; platform_system == "Windows"
