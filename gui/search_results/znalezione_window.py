@@ -36,6 +36,9 @@ except ImportError:
     EmailSearchEngine = None
     search_messages = None
 
+# Config file path constant
+CONFIG_FILE = Path.home() / '.poczta_faktury_config.json'
+
 # Placeholder text for demonstration window
 PLACEHOLDER_TEXT = """To jest okno wyników wyszukiwania \"Znalezione\".
 
@@ -96,9 +99,6 @@ class ZnalezioneWindow:
         # Metadata storage for tree items
         self.item_metadata = {}
         
-        # Config file path
-        self.config_file = Path.home() / '.poczta_faktury_config.json'
-        
         # Create window
         self.window = tk.Toplevel(parent)
         self.window.title("Znalezione - Wyniki wyszukiwania")
@@ -124,8 +124,8 @@ class ZnalezioneWindow:
         
         # Try to read from config file
         try:
-            if self.config_file.exists():
-                with open(self.config_file, 'r', encoding='utf-8') as f:
+            if CONFIG_FILE.exists():
+                with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
                     config = json.load(f)
                     
                     # Try email_config.pdf_engine first (new format)
@@ -170,7 +170,7 @@ class ZnalezioneWindow:
             top_frame,
             text=f"Silnik PDF: {pdf_engine}",
             font=('Arial', 8),
-            foreground='green'
+            foreground='#008000'  # Green color using hex for cross-platform consistency
         )
         self.pdf_engine_label.pack(side='right', padx=10)
         
