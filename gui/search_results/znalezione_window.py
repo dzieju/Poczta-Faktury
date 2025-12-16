@@ -184,8 +184,7 @@ class ZnalezioneWindow:
         
         # Bind right-click for context menu
         self.tree.bind('<Button-3>', self.show_context_menu)  # Right-click on Linux/Windows
-        self.tree.bind('<Button-2>', self.show_context_menu)  # Right-click on macOS (sometimes)
-        self.tree.bind('<Control-Button-1>', self.show_context_menu)  # Ctrl+Click on macOS
+        self.tree.bind('<Control-Button-1>', self.show_context_menu)  # Ctrl+Click on macOS (primary method)
         
         # Create context menu (will be populated dynamically)
         self.context_menu = tk.Menu(self.tree, tearoff=0)
@@ -492,7 +491,7 @@ class ZnalezioneWindow:
             self._open_file_with_system_app(pdf_path)
             log(f"Opened PDF via context menu: {pdf_path}")
         except Exception as e:
-            error_msg = f"Nie udało się otworzyć pliku PDF:\n\nŚcieżka: {pdf_path}\n\nBłąd: {str(e)}"
+            error_msg = self._format_file_error_message("PDF", pdf_path, e)
             log(f"Error opening PDF via context menu: {e}", level="ERROR")
             messagebox.showerror("Błąd", error_msg)
     
@@ -522,7 +521,7 @@ class ZnalezioneWindow:
             self._open_file_with_system_app(eml_path)
             log(f"Opened EML via context menu: {eml_path}")
         except Exception as e:
-            error_msg = f"Nie udało się otworzyć pliku Email:\n\nŚcieżka: {eml_path}\n\nBłąd: {str(e)}"
+            error_msg = self._format_file_error_message("Email", eml_path, e)
             log(f"Error opening EML via context menu: {e}", level="ERROR")
             messagebox.showerror("Błąd", error_msg)
     
@@ -574,7 +573,7 @@ class ZnalezioneWindow:
             self._open_file_with_system_app(pdf_path)
             log(f"Opened PDF attachment: {pdf_path}")
         except Exception as e:
-            error_msg = f"Nie udało się otworzyć załącznika PDF:\n\nŚcieżka: {pdf_path}\n\nBłąd: {str(e)}"
+            error_msg = self._format_file_error_message("PDF", pdf_path, e)
             log(f"Error opening PDF attachment: {e}", level="ERROR")
             messagebox.showerror("Błąd", error_msg)
     
@@ -610,9 +609,23 @@ class ZnalezioneWindow:
             self._open_file_with_system_app(eml_path)
             log(f"Opened EML file: {eml_path}")
         except Exception as e:
-            error_msg = f"Nie udało się otworzyć wiadomości Email:\n\nŚcieżka: {eml_path}\n\nBłąd: {str(e)}"
+            error_msg = self._format_file_error_message("Email", eml_path, e)
             log(f"Error opening EML file: {e}", level="ERROR")
             messagebox.showerror("Błąd", error_msg)
+    
+    def _format_file_error_message(self, file_type, file_path, error):
+        """
+        Format a consistent error message for file opening failures
+        
+        Args:
+            file_type: Type of file (e.g., "PDF", "Email")
+            file_path: Path to the file that failed to open
+            error: Exception or error message string
+            
+        Returns:
+            str: Formatted error message
+        """
+        return f"Nie udało się otworzyć pliku {file_type}:\n\nŚcieżka: {file_path}\n\nBłąd: {str(error)}"
     
     def _open_file_with_system_app(self, file_path):
         """

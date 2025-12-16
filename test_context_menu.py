@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 Test script for context menu functionality in znalezione_window
@@ -241,16 +241,23 @@ def test_error_handling():
     """Test error message formatting"""
     print("\nTesting error message formatting:")
     
-    # Test file path in error message
+    # Test file path in error message (matching production code format)
     file_path = "/path/to/nonexistent/file.pdf"
     error = "File not found"
+    file_type = "PDF"
     
-    error_msg = f"Nie udało się otworzyć pliku:\n\nŚcieżka: {file_path}\n\nBłąd: {error}"
+    error_msg = f"Nie udało się otworzyć pliku {file_type}:\n\nŚcieżka: {file_path}\n\nBłąd: {error}"
     
     if file_path not in error_msg or error not in error_msg:
         print(f"  ✗ Error message missing required information")
         return False
     print(f"  ✓ Error message contains file path and error description")
+    
+    # Verify file type is included
+    if file_type not in error_msg:
+        print(f"  ✗ Error message should include file type")
+        return False
+    print(f"  ✓ Error message includes file type")
     
     # Verify multi-line format
     lines = error_msg.split('\n')
