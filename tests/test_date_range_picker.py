@@ -83,7 +83,7 @@ class TestDateRangeValidation:
             is_valid, date_from, date_to, error = app.validate_date_range()
             
             assert is_valid is False
-            assert "późniejsza" in error.lower() or "późniejsza" in error
+            assert "późniejsza" in error.lower()
     
     def test_only_from_date(self):
         """Test that having only from date is valid (search from date to end)"""

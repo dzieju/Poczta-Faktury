@@ -593,13 +593,13 @@ class EmailInvoiceFinderApp:
         if date_from_str:
             try:
                 date_from = self.date_from_entry.get_date()
-            except Exception as e:
+            except Exception:
                 return (False, None, None, f"Nieprawidłowa data 'Od': {date_from_str}")
         
         if date_to_str:
             try:
                 date_to = self.date_to_entry.get_date()
-            except Exception as e:
+            except Exception:
                 return (False, None, None, f"Nieprawidłowa data 'Do': {date_to_str}")
         
         # Validate range
