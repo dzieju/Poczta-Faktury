@@ -44,6 +44,12 @@ python main.py
    - Opcjonalnie zaznacz "Pokaż hasło" aby zobaczyć wpisywane hasło
    - Opcjonalnie zaznacz "Zapisz ustawienia" aby zapisać konfigurację do pliku ~/.poczta_faktury_config.json
    - Kliknij "Testuj połączenie" aby sprawdzić poprawność konfiguracji
+   - **Zarządzanie kontami email** (na dole zakładki):
+     - Wybierz aktywne konto z listy rozwijanej
+     - Dodaj nowe konto klikając "Dodaj konto"
+     - Edytuj istniejące konto klikając "Edytuj konto"
+     - Usuń konto klikając "Usuń konto"
+     - Zobacz szczegóły w [FEATURE_MULTI_ACCOUNT.md](FEATURE_MULTI_ACCOUNT.md)
 
 3. W zakładce "Wyszukiwanie NIP":
    - Wprowadź numer NIP do wyszukania
@@ -106,6 +112,7 @@ python main.py
 - ✅ Zakładka "O programie" z danymi kontaktowymi i wersją aplikacji
 - ✅ Automatyczne wersjonowanie aplikacji (patch version zwiększana przy każdym push do main)
 - ✅ Okno "Znalezione" - zaawansowane wyniki wyszukiwania z tabelą wiadomości i podglądem dopasowań PDF
+- ✅ **Zarządzanie wieloma kontami email** - dodawanie, edycja, usuwanie i przełączanie między kontami
 
 ## Okno "Znalezione" - Zaawansowane wyniki wyszukiwania
 
