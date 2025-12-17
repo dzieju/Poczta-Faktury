@@ -56,7 +56,7 @@ class EmailAccountManager:
             # Create account from old config
             account = {
                 'email': email_config['email'],
-                'name': email_config.get('email', 'Konto główne'),
+                'name': email_config.get('name', email_config.get('email', 'Konto główne')),
                 'protocol': email_config.get('protocol', 'IMAP'),
                 'server': email_config.get('server', ''),
                 'port': email_config.get('port', '993'),
@@ -141,7 +141,13 @@ class EmailAccountManager:
         Returns:
             True jeśli usunięto, False jeśli konto nie istnieje
         """
-        account = self.get_account_by_email(email)
+        # Find the actual account in the list (not a copy)
+        account = None
+        for acc in self.accounts:
+            if acc.get('email') == email:
+                account = acc
+                break
+        
         if not account:
             return False
         

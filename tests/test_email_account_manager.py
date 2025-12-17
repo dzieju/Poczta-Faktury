@@ -31,7 +31,7 @@ def test_create_empty_manager():
     
     try:
         manager = EmailAccountManager(config_file)
-        assert manager.has_accounts() == False
+        assert not manager.has_accounts()
         assert manager.get_active_account() is None
         assert len(manager.get_accounts()) == 0
     finally:
@@ -59,8 +59,8 @@ def test_add_account():
         }
         
         result = manager.add_account(account)
-        assert result == True
-        assert manager.has_accounts() == True
+        assert result
+        assert manager.has_accounts()
         assert len(manager.get_accounts()) == 1
         
         # First account should be active
@@ -87,10 +87,10 @@ def test_add_duplicate_account():
         }
         
         result1 = manager.add_account(account)
-        assert result1 == True
+        assert result1
         
         result2 = manager.add_account(account)
-        assert result2 == False
+        assert not result2
         assert len(manager.get_accounts()) == 1
         
     finally:
@@ -112,7 +112,7 @@ def test_remove_account():
         assert len(manager.get_accounts()) == 2
         
         result = manager.remove_account('test1@example.com')
-        assert result == True
+        assert result
         assert len(manager.get_accounts()) == 1
         assert manager.get_account_by_email('test2@example.com') is not None
         
@@ -140,7 +140,7 @@ def test_update_account():
             'server': 'new.server.com'
         })
         
-        assert result == True
+        assert result
         
         account = manager.get_account_by_email('test@example.com')
         assert account['name'] == 'New Name'
@@ -167,7 +167,7 @@ def test_set_active_account():
         
         # Change active account
         result = manager.set_active_account('test2@example.com')
-        assert result == True
+        assert result
         assert manager.get_active_account()['email'] == 'test2@example.com'
         
     finally:
@@ -227,7 +227,7 @@ def test_migration_from_old_format():
         # Load with manager - should migrate
         manager = EmailAccountManager(config_file)
         
-        assert manager.has_accounts() == True
+        assert manager.has_accounts()
         assert len(manager.get_accounts()) == 1
         
         account = manager.get_active_account()
