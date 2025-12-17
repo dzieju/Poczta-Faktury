@@ -38,10 +38,11 @@ except Exception:
 
 # Safe import for logger with extended functionality
 try:
-    from gui.logger import log, set_level, init_from_config, save_level_to_config, LOG_LEVELS, get_level
+    from gui.logger import log, set_level, init_from_config, save_level_to_config, LOG_LEVEL_NAMES, get_level
 except ImportError:
     # fallback: import existing simple log function
     from gui.logger import log
+    LOG_LEVEL_NAMES = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 
 # Plik konfiguracyjny
 CONFIG_FILE = Path.home() / '.poczta_faktury_config.json'
@@ -223,11 +224,11 @@ class EmailInvoiceFinderApp:
         # Log Level selection
         ttk.Label(self.config_frame, text="Poziom logów:").grid(row=14, column=0, sticky='w', padx=10, pady=5)
         try:
-            level_values = list(LOG_LEVELS.keys())
+            level_values = LOG_LEVEL_NAMES
             self.log_level_var = tk.StringVar(value=get_level())
         except (NameError, AttributeError):
-            # Fallback if LOG_LEVELS or get_level not available
-            level_values = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+            # Fallback if LOG_LEVEL_NAMES or get_level not available
+            level_values = LOG_LEVEL_NAMES  # Use fallback from import section
             self.log_level_var = tk.StringVar(value='INFO')
         
         log_level_cb = ttk.Combobox(self.config_frame, values=level_values, textvariable=self.log_level_var, 

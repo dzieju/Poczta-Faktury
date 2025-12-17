@@ -20,6 +20,9 @@ LOG_LEVELS = {
     'CRITICAL': 50
 }
 
+# Lista nazw poziomów (dla UI i walidacji)
+LOG_LEVEL_NAMES = list(LOG_LEVELS.keys())
+
 # Aktualny poziom (domyślnie INFO)
 _current_level = LOG_LEVELS['INFO']
 
@@ -28,11 +31,12 @@ def _level_value(level_name: str) -> int:
     return LOG_LEVELS.get(level_name.upper(), LOG_LEVELS['INFO'])
 
 
-def _validate_level(level_name: str) -> Optional[str]:
+def _validate_level(level_name: Optional[str]) -> Optional[str]:
     """
     Waliduje nazwę poziomu i zwraca znormalizowaną nazwę (uppercase) lub None jeśli nieprawidłowa.
+    Obsługuje None i puste stringi.
     """
-    if level_name and level_name.upper() in LOG_LEVELS:
+    if level_name and isinstance(level_name, str) and level_name.upper() in LOG_LEVELS:
         return level_name.upper()
     return None
 
@@ -97,7 +101,7 @@ def init_from_config(config_path: Optional[Path] = None):
             with open(path, 'r', encoding='utf-8') as f:
                 cfg = json.load(f)
                 lvl = cfg.get('app', {}).get('log_level')
-                validated = _validate_level(lvl) if lvl else None
+                validated = _validate_level(lvl)
                 if validated:
                     set_level(validated)
     except Exception:
