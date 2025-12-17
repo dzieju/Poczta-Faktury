@@ -36,6 +36,14 @@ try:
 except Exception:
     open_znalezione_window = None
 
+# Safe import for logger with extended functionality
+try:
+    from gui.logger import log, set_level, init_from_config, save_level_to_config, LOG_LEVEL_NAMES, get_level
+except ImportError:
+    # fallback: import existing simple log function
+    from gui.logger import log
+    LOG_LEVEL_NAMES = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+
 # Plik konfiguracyjny
 CONFIG_FILE = Path.home() / '.poczta_faktury_config.json'
 
@@ -85,6 +93,12 @@ class EmailInvoiceFinderApp:
         self.search_thread = None
         self.stop_event = threading.Event()
         self.log_queue = queue.Queue()
+        
+        # Initialize log level from config (if set)
+        try:
+            init_from_config()
+        except Exception:
+            pass
         
         # Wczytaj konfigurację z pliku
         self.load_config()
@@ -203,6 +217,24 @@ class EmailInvoiceFinderApp:
                                         values=['pdfplumber', 'pdfminer.six'], 
                                         state='readonly', width=37)
         pdf_engine_combo.grid(row=12, column=1, sticky='ew', padx=10, pady=5)
+        
+        # Separator before log level settings
+        ttk.Separator(self.config_frame, orient='horizontal').grid(row=13, column=0, columnspan=2, sticky='ew', padx=10, pady=20)
+        
+        # Log Level selection
+        ttk.Label(self.config_frame, text="Poziom logów:").grid(row=14, column=0, sticky='w', padx=10, pady=5)
+        try:
+            level_values = LOG_LEVEL_NAMES
+            self.log_level_var = tk.StringVar(value=get_level())
+        except (NameError, AttributeError):
+            # Fallback if LOG_LEVEL_NAMES or get_level not available
+            level_values = LOG_LEVEL_NAMES  # Use fallback from import section
+            self.log_level_var = tk.StringVar(value='INFO')
+        
+        log_level_cb = ttk.Combobox(self.config_frame, values=level_values, textvariable=self.log_level_var, 
+                                     state='readonly', width=37)
+        log_level_cb.grid(row=14, column=1, sticky='ew', padx=10, pady=5)
+        log_level_cb.bind("<<ComboboxSelected>>", self._on_log_level_change)
         
         self.config_frame.columnconfigure(1, weight=1)
     
@@ -423,29 +455,37 @@ class EmailInvoiceFinderApp:
     
     def save_config(self):
         """Zapisywanie konfiguracji do pliku JSON"""
-        config = {
-            'email_config': {
-                'protocol': self.protocol_var.get(),
-                'server': self.server_entry.get(),
-                'port': self.port_entry.get(),
-                'email': self.email_entry.get(),
-                'password': self.password_entry.get() if self.save_email_config_var.get() else '',
-                'use_ssl': self.ssl_var.get(),
-                'save_email_settings': self.save_email_config_var.get(),
-                'pdf_engine': self.pdf_engine_var.get() if self.pdf_engine_var else 'pdfplumber'
-            },
-            'search_config': {
-                'nip': self.nip_entry.get() if self.save_search_config_var.get() else '',
-                'output_folder': self.folder_entry.get() if self.save_search_config_var.get() else '',
-                'save_search_settings': self.save_search_config_var.get(),
-                'date_from': self.search_config.get('date_from') if self.save_search_config_var.get() else None,
-                'date_to': self.search_config.get('date_to') if self.save_search_config_var.get() else None
-            }
+        # Load existing config to preserve sections managed by other modules (e.g., app.log_level)
+        existing_config = {}
+        try:
+            if CONFIG_FILE.exists():
+                with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+                    existing_config = json.load(f)
+        except Exception:
+            existing_config = {}
+        
+        # Update only the sections we manage
+        existing_config['email_config'] = {
+            'protocol': self.protocol_var.get(),
+            'server': self.server_entry.get(),
+            'port': self.port_entry.get(),
+            'email': self.email_entry.get(),
+            'password': self.password_entry.get() if self.save_email_config_var.get() else '',
+            'use_ssl': self.ssl_var.get(),
+            'save_email_settings': self.save_email_config_var.get(),
+            'pdf_engine': self.pdf_engine_var.get() if self.pdf_engine_var else 'pdfplumber'
+        }
+        existing_config['search_config'] = {
+            'nip': self.nip_entry.get() if self.save_search_config_var.get() else '',
+            'output_folder': self.folder_entry.get() if self.save_search_config_var.get() else '',
+            'save_search_settings': self.save_search_config_var.get(),
+            'date_from': self.search_config.get('date_from') if self.save_search_config_var.get() else None,
+            'date_to': self.search_config.get('date_to') if self.save_search_config_var.get() else None
         }
         
         try:
             with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
-                json.dump(config, f, indent=2, ensure_ascii=False)
+                json.dump(existing_config, f, indent=2, ensure_ascii=False)
         except Exception as e:
             print(f"Błąd zapisu konfiguracji: {e}")
             messagebox.showwarning("Ostrzeżenie", f"Nie udało się zapisać konfiguracji:\n{str(e)}")
@@ -527,6 +567,16 @@ class EmailInvoiceFinderApp:
             self.current_engine_label.config(text=f" {new_engine}")
             # Keep the data model in sync with the UI
             self.email_config['pdf_engine'] = new_engine
+    
+    def _on_log_level_change(self, event=None):
+        """Callback when log level selection changes - updates runtime level and saves to config"""
+        chosen = self.log_level_var.get()
+        try:
+            set_level(chosen)
+            save_level_to_config(chosen)
+            log(f"Poziom logów ustawiony na: {chosen}", level="INFO")
+        except Exception as e:
+            log(f"Nie udało się ustawić poziomu logów: {e}", level="ERROR")
     
     def test_connection(self):
         """Testowanie połączenia z serwerem email"""
