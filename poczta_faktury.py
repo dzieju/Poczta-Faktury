@@ -36,6 +36,13 @@ try:
 except Exception:
     open_znalezione_window = None
 
+# Safe import for logger with extended functionality
+try:
+    from gui.logger import log, set_level, init_from_config, save_level_to_config, LOG_LEVELS, get_level
+except Exception:
+    # fallback: import existing simple log function
+    from gui.logger import log
+
 # Plik konfiguracyjny
 CONFIG_FILE = Path.home() / '.poczta_faktury_config.json'
 
@@ -85,6 +92,12 @@ class EmailInvoiceFinderApp:
         self.search_thread = None
         self.stop_event = threading.Event()
         self.log_queue = queue.Queue()
+        
+        # Initialize log level from config (if set)
+        try:
+            init_from_config()
+        except Exception:
+            pass
         
         # Wczytaj konfigurację z pliku
         self.load_config()
@@ -203,6 +216,24 @@ class EmailInvoiceFinderApp:
                                         values=['pdfplumber', 'pdfminer.six'], 
                                         state='readonly', width=37)
         pdf_engine_combo.grid(row=12, column=1, sticky='ew', padx=10, pady=5)
+        
+        # Separator before log level settings
+        ttk.Separator(self.config_frame, orient='horizontal').grid(row=13, column=0, columnspan=2, sticky='ew', padx=10, pady=20)
+        
+        # Log Level selection
+        ttk.Label(self.config_frame, text="Poziom logów:").grid(row=14, column=0, sticky='w', padx=10, pady=5)
+        try:
+            level_values = list(LOG_LEVELS.keys())
+            self.log_level_var = tk.StringVar(value=get_level())
+        except Exception:
+            level_values = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+            self.log_level_var = tk.StringVar(value='INFO')
+        
+        log_level_cb = ttk.Combobox(self.config_frame, values=level_values, textvariable=self.log_level_var, 
+                                     state='readonly', width=37)
+        log_level_cb.set(self.log_level_var.get())
+        log_level_cb.grid(row=14, column=1, sticky='ew', padx=10, pady=5)
+        log_level_cb.bind("<<ComboboxSelected>>", self._on_log_level_change)
         
         self.config_frame.columnconfigure(1, weight=1)
     
@@ -527,6 +558,16 @@ class EmailInvoiceFinderApp:
             self.current_engine_label.config(text=f" {new_engine}")
             # Keep the data model in sync with the UI
             self.email_config['pdf_engine'] = new_engine
+    
+    def _on_log_level_change(self, event=None):
+        """Callback when log level selection changes - updates runtime level and saves to config"""
+        chosen = self.log_level_var.get()
+        try:
+            set_level(chosen)
+            save_level_to_config(chosen)
+            log(f"Poziom logów ustawiony na: {chosen}", level="INFO")
+        except Exception as e:
+            log(f"Nie udało się ustawić poziomu logów: {e}", level="ERROR")
     
     def test_connection(self):
         """Testowanie połączenia z serwerem email"""
