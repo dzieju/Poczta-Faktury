@@ -28,13 +28,27 @@ def _level_value(level_name: str) -> int:
     return LOG_LEVELS.get(level_name.upper(), LOG_LEVELS['INFO'])
 
 
+def _validate_level(level_name: str) -> Optional[str]:
+    """
+    Waliduje nazwę poziomu i zwraca znormalizowaną nazwę (uppercase) lub None jeśli nieprawidłowa.
+    """
+    if level_name and level_name.upper() in LOG_LEVELS:
+        return level_name.upper()
+    return None
+
+
 def set_level(level_name: str):
     """
     Ustaw globalny poziom logów (np. 'DEBUG','INFO','WARNING','ERROR','CRITICAL').
     Wiadomości o poziomie mniejszym niż ustawiony będą pomijane.
+    Poziom jest normalizowany do uppercase automatycznie.
     """
     global _current_level
-    _current_level = _level_value(level_name)
+    validated = _validate_level(level_name)
+    if validated:
+        _current_level = LOG_LEVELS[validated]
+    else:
+        _current_level = LOG_LEVELS['INFO']  # Fallback to INFO for invalid levels
 
 
 def get_level() -> str:
@@ -83,8 +97,9 @@ def init_from_config(config_path: Optional[Path] = None):
             with open(path, 'r', encoding='utf-8') as f:
                 cfg = json.load(f)
                 lvl = cfg.get('app', {}).get('log_level')
-                if lvl and lvl.upper() in LOG_LEVELS:
-                    set_level(lvl.upper())
+                validated = _validate_level(lvl) if lvl else None
+                if validated:
+                    set_level(validated)
     except Exception:
         # Ignorujemy błędy czytania i pozostawiamy domyślny poziom
         pass

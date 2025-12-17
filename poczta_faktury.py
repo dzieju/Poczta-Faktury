@@ -39,7 +39,7 @@ except Exception:
 # Safe import for logger with extended functionality
 try:
     from gui.logger import log, set_level, init_from_config, save_level_to_config, LOG_LEVELS, get_level
-except Exception:
+except ImportError:
     # fallback: import existing simple log function
     from gui.logger import log
 
@@ -225,7 +225,8 @@ class EmailInvoiceFinderApp:
         try:
             level_values = list(LOG_LEVELS.keys())
             self.log_level_var = tk.StringVar(value=get_level())
-        except Exception:
+        except (NameError, AttributeError):
+            # Fallback if LOG_LEVELS or get_level not available
             level_values = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
             self.log_level_var = tk.StringVar(value='INFO')
         
