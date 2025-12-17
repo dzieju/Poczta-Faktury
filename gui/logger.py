@@ -84,7 +84,7 @@ def init_from_config(config_path: Optional[Path] = None):
                 cfg = json.load(f)
                 lvl = cfg.get('app', {}).get('log_level')
                 if lvl and lvl.upper() in LOG_LEVELS:
-                    set_level(lvl)
+                    set_level(lvl.upper())
     except Exception:
         # Ignorujemy błędy czytania i pozostawiamy domyślny poziom
         pass

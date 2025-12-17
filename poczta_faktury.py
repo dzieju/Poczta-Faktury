@@ -231,7 +231,6 @@ class EmailInvoiceFinderApp:
         
         log_level_cb = ttk.Combobox(self.config_frame, values=level_values, textvariable=self.log_level_var, 
                                      state='readonly', width=37)
-        log_level_cb.set(self.log_level_var.get())
         log_level_cb.grid(row=14, column=1, sticky='ew', padx=10, pady=5)
         log_level_cb.bind("<<ComboboxSelected>>", self._on_log_level_change)
         
