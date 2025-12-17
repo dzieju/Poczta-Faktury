@@ -454,29 +454,37 @@ class EmailInvoiceFinderApp:
     
     def save_config(self):
         """Zapisywanie konfiguracji do pliku JSON"""
-        config = {
-            'email_config': {
-                'protocol': self.protocol_var.get(),
-                'server': self.server_entry.get(),
-                'port': self.port_entry.get(),
-                'email': self.email_entry.get(),
-                'password': self.password_entry.get() if self.save_email_config_var.get() else '',
-                'use_ssl': self.ssl_var.get(),
-                'save_email_settings': self.save_email_config_var.get(),
-                'pdf_engine': self.pdf_engine_var.get() if self.pdf_engine_var else 'pdfplumber'
-            },
-            'search_config': {
-                'nip': self.nip_entry.get() if self.save_search_config_var.get() else '',
-                'output_folder': self.folder_entry.get() if self.save_search_config_var.get() else '',
-                'save_search_settings': self.save_search_config_var.get(),
-                'date_from': self.search_config.get('date_from') if self.save_search_config_var.get() else None,
-                'date_to': self.search_config.get('date_to') if self.save_search_config_var.get() else None
-            }
+        # Load existing config to preserve sections managed by other modules (e.g., app.log_level)
+        existing_config = {}
+        try:
+            if CONFIG_FILE.exists():
+                with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+                    existing_config = json.load(f)
+        except Exception:
+            existing_config = {}
+        
+        # Update only the sections we manage
+        existing_config['email_config'] = {
+            'protocol': self.protocol_var.get(),
+            'server': self.server_entry.get(),
+            'port': self.port_entry.get(),
+            'email': self.email_entry.get(),
+            'password': self.password_entry.get() if self.save_email_config_var.get() else '',
+            'use_ssl': self.ssl_var.get(),
+            'save_email_settings': self.save_email_config_var.get(),
+            'pdf_engine': self.pdf_engine_var.get() if self.pdf_engine_var else 'pdfplumber'
+        }
+        existing_config['search_config'] = {
+            'nip': self.nip_entry.get() if self.save_search_config_var.get() else '',
+            'output_folder': self.folder_entry.get() if self.save_search_config_var.get() else '',
+            'save_search_settings': self.save_search_config_var.get(),
+            'date_from': self.search_config.get('date_from') if self.save_search_config_var.get() else None,
+            'date_to': self.search_config.get('date_to') if self.save_search_config_var.get() else None
         }
         
         try:
             with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
-                json.dump(config, f, indent=2, ensure_ascii=False)
+                json.dump(existing_config, f, indent=2, ensure_ascii=False)
         except Exception as e:
             print(f"Błąd zapisu konfiguracji: {e}")
             messagebox.showwarning("Ostrzeżenie", f"Nie udało się zapisać konfiguracji:\n{str(e)}")

@@ -48,7 +48,7 @@ def get_level() -> str:
 def save_level_to_config(level_name: str, config_path: Optional[Path] = None):
     """
     Zapisz poziom logów do pliku konfiguracyjnego (klucz 'app' -> 'log_level').
-    Tworzy plik jeśli nie istnieje.
+    Tworzy plik jeśli nie istnieje. Zachowuje istniejące sekcje konfiguracji.
     """
     path = config_path or CONFIG_FILE
     cfg = {}
@@ -58,8 +58,11 @@ def save_level_to_config(level_name: str, config_path: Optional[Path] = None):
                 cfg = json.load(f)
     except Exception:
         cfg = {}
+    
+    # Preserve all existing sections and only update app.log_level
     cfg.setdefault('app', {})
     cfg['app']['log_level'] = level_name
+    
     try:
         with open(path, 'w', encoding='utf-8') as f:
             json.dump(cfg, f, ensure_ascii=False, indent=2)
@@ -72,6 +75,7 @@ def init_from_config(config_path: Optional[Path] = None):
     """
     Spróbuj wczytać poziom logów z pliku konfiguracyjnego i ustawić go.
     Oczekiwana struktura: { "app": { "log_level": "DEBUG" } }
+    Waliduje poziom przed ustawieniem - nieprawidłowe wartości są ignorowane.
     """
     path = config_path or CONFIG_FILE
     try:
@@ -79,7 +83,7 @@ def init_from_config(config_path: Optional[Path] = None):
             with open(path, 'r', encoding='utf-8') as f:
                 cfg = json.load(f)
                 lvl = cfg.get('app', {}).get('log_level')
-                if lvl:
+                if lvl and lvl.upper() in LOG_LEVELS:
                     set_level(lvl)
     except Exception:
         # Ignorujemy błędy czytania i pozostawiamy domyślny poziom
