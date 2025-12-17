@@ -22,6 +22,17 @@ from email.utils import parsedate_to_datetime
 import threading
 import queue
 
+# Import EmailAccountManager - use direct file import to avoid circular dependency
+import importlib.util
+_email_account_manager_path = Path(__file__).parent / 'poczta_faktury' / 'email_account_manager.py'
+if _email_account_manager_path.exists():
+    _spec = importlib.util.spec_from_file_location("email_account_manager", _email_account_manager_path)
+    _email_account_manager_module = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_email_account_manager_module)
+    EmailAccountManager = _email_account_manager_module.EmailAccountManager
+else:
+    EmailAccountManager = None
+
 # Safe import for tkcalendar DateEntry
 try:
     from tkcalendar import DateEntry
@@ -65,7 +76,13 @@ class EmailInvoiceFinderApp:
         
         self.root.geometry("800x600")
         
-        # Konfiguracja email
+        # Initialize EmailAccountManager
+        if EmailAccountManager:
+            self.account_manager = EmailAccountManager(CONFIG_FILE)
+        else:
+            self.account_manager = None
+        
+        # Konfiguracja email (kept for backward compatibility during transition)
         self.email_config = {
             'protocol': 'IMAP',
             'server': '',
@@ -236,7 +253,73 @@ class EmailInvoiceFinderApp:
         log_level_cb.grid(row=14, column=1, sticky='ew', padx=10, pady=5)
         log_level_cb.bind("<<ComboboxSelected>>", self._on_log_level_change)
         
+        # Separator before account management
+        ttk.Separator(self.config_frame, orient='horizontal').grid(row=15, column=0, columnspan=2, sticky='ew', padx=10, pady=20)
+        
+        # Account Management Section
+        if self.account_manager:
+            self._create_account_management_section()
+        
         self.config_frame.columnconfigure(1, weight=1)
+    
+    def _create_account_management_section(self):
+        """Tworzenie sekcji zarządzania kontami email"""
+        # Account Management Header
+        accounts_header_frame = ttk.Frame(self.config_frame)
+        accounts_header_frame.grid(row=16, column=0, columnspan=2, sticky='ew', padx=10, pady=(10, 5))
+        
+        ttk.Label(accounts_header_frame, text="Zarządzanie kontami email:", 
+                 font=("TkDefaultFont", 10, "bold")).pack(side='left')
+        
+        # Active account selector
+        active_account_frame = ttk.Frame(self.config_frame)
+        active_account_frame.grid(row=17, column=0, columnspan=2, sticky='ew', padx=10, pady=5)
+        
+        ttk.Label(active_account_frame, text="Aktywne konto:").pack(side='left', padx=(0, 5))
+        
+        self.active_account_var = tk.StringVar()
+        self.active_account_combo = ttk.Combobox(active_account_frame, 
+                                                  textvariable=self.active_account_var,
+                                                  state='readonly', width=40)
+        self.active_account_combo.pack(side='left', fill='x', expand=True)
+        self.active_account_combo.bind("<<ComboboxSelected>>", self._on_active_account_changed)
+        
+        # Account list and buttons frame
+        accounts_list_frame = ttk.Frame(self.config_frame)
+        accounts_list_frame.grid(row=18, column=0, columnspan=2, sticky='nsew', padx=10, pady=5)
+        
+        # Listbox with scrollbar
+        list_scroll_frame = ttk.Frame(accounts_list_frame)
+        list_scroll_frame.pack(side='left', fill='both', expand=True)
+        
+        scrollbar = ttk.Scrollbar(list_scroll_frame)
+        scrollbar.pack(side='right', fill='y')
+        
+        self.accounts_listbox = tk.Listbox(list_scroll_frame, 
+                                           yscrollcommand=scrollbar.set,
+                                           height=5, width=40)
+        self.accounts_listbox.pack(side='left', fill='both', expand=True)
+        scrollbar.config(command=self.accounts_listbox.yview)
+        
+        # Buttons frame
+        buttons_frame = ttk.Frame(accounts_list_frame)
+        buttons_frame.pack(side='right', fill='y', padx=(10, 0))
+        
+        ttk.Button(buttons_frame, text="Dodaj konto", 
+                  command=self._add_account_dialog).pack(pady=2, fill='x')
+        ttk.Button(buttons_frame, text="Edytuj konto", 
+                  command=self._edit_account_dialog).pack(pady=2, fill='x')
+        ttk.Button(buttons_frame, text="Usuń konto", 
+                  command=self._delete_account).pack(pady=2, fill='x')
+        ttk.Button(buttons_frame, text="Załaduj do pól", 
+                  command=self._load_account_to_fields).pack(pady=2, fill='x')
+        
+        # Info label
+        self.account_info_label = ttk.Label(self.config_frame, text="", foreground="blue")
+        self.account_info_label.grid(row=19, column=0, columnspan=2, padx=10, pady=5)
+        
+        # Refresh account list
+        self._refresh_accounts_list()
     
     def create_search_tab(self):
         """Tworzenie zakładki wyszukiwania"""
@@ -453,6 +536,336 @@ class EmailInvoiceFinderApp:
         else:
             self.password_entry.config(show='*')
     
+    def _refresh_accounts_list(self):
+        """Odświeżenie listy kont w UI"""
+        if not self.account_manager:
+            return
+        
+        # Clear listbox
+        self.accounts_listbox.delete(0, tk.END)
+        
+        # Get accounts
+        accounts = self.account_manager.get_accounts()
+        
+        # Update listbox
+        for account in accounts:
+            name = account.get('name', account.get('email', 'Unnamed'))
+            email = account.get('email', '')
+            display_text = f"{name} ({email})"
+            self.accounts_listbox.insert(tk.END, display_text)
+        
+        # Update active account combo
+        account_emails = [acc.get('email', '') for acc in accounts]
+        self.active_account_combo['values'] = account_emails
+        
+        # Set active account in combo
+        active = self.account_manager.get_active_account()
+        if active:
+            self.active_account_var.set(active.get('email', ''))
+        elif account_emails:
+            self.active_account_var.set(account_emails[0])
+    
+    def _on_active_account_changed(self, event=None):
+        """Callback gdy użytkownik zmieni aktywne konto"""
+        if not self.account_manager:
+            return
+        
+        selected_email = self.active_account_var.get()
+        if selected_email:
+            if self.account_manager.set_active_account(selected_email):
+                self.account_info_label.config(text=f"Aktywne konto ustawione na: {selected_email}", 
+                                              foreground="green")
+                # Load account to fields
+                self._load_account_to_fields_by_email(selected_email)
+            else:
+                self.account_info_label.config(text="Błąd przy ustawianiu aktywnego konta", 
+                                              foreground="red")
+    
+    def _add_account_dialog(self):
+        """Dialog dodawania nowego konta"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Dodaj nowe konto")
+        dialog.geometry("500x450")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Account fields
+        fields = {}
+        row = 0
+        
+        ttk.Label(dialog, text="Nazwa konta:").grid(row=row, column=0, sticky='w', padx=10, pady=5)
+        fields['name'] = ttk.Entry(dialog, width=40)
+        fields['name'].grid(row=row, column=1, sticky='ew', padx=10, pady=5)
+        row += 1
+        
+        ttk.Label(dialog, text="Email:").grid(row=row, column=0, sticky='w', padx=10, pady=5)
+        fields['email'] = ttk.Entry(dialog, width=40)
+        fields['email'].grid(row=row, column=1, sticky='ew', padx=10, pady=5)
+        row += 1
+        
+        ttk.Label(dialog, text="Protokół:").grid(row=row, column=0, sticky='w', padx=10, pady=5)
+        protocol_var = tk.StringVar(value='IMAP')
+        protocol_frame = ttk.Frame(dialog)
+        protocol_frame.grid(row=row, column=1, sticky='w', padx=10, pady=5)
+        ttk.Radiobutton(protocol_frame, text="IMAP", variable=protocol_var, value='IMAP').pack(side='left')
+        ttk.Radiobutton(protocol_frame, text="POP3", variable=protocol_var, value='POP3').pack(side='left')
+        ttk.Radiobutton(protocol_frame, text="Exchange", variable=protocol_var, value='EXCHANGE').pack(side='left')
+        fields['protocol'] = protocol_var
+        row += 1
+        
+        ttk.Label(dialog, text="Serwer:").grid(row=row, column=0, sticky='w', padx=10, pady=5)
+        fields['server'] = ttk.Entry(dialog, width=40)
+        fields['server'].grid(row=row, column=1, sticky='ew', padx=10, pady=5)
+        row += 1
+        
+        ttk.Label(dialog, text="Port:").grid(row=row, column=0, sticky='w', padx=10, pady=5)
+        fields['port'] = ttk.Entry(dialog, width=40)
+        fields['port'].insert(0, "993")
+        fields['port'].grid(row=row, column=1, sticky='ew', padx=10, pady=5)
+        row += 1
+        
+        ttk.Label(dialog, text="Hasło:").grid(row=row, column=0, sticky='w', padx=10, pady=5)
+        fields['password'] = ttk.Entry(dialog, width=40, show='*')
+        fields['password'].grid(row=row, column=1, sticky='ew', padx=10, pady=5)
+        row += 1
+        
+        ssl_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(dialog, text="Użyj SSL/TLS", variable=ssl_var).grid(
+            row=row, column=0, columnspan=2, padx=10, pady=5)
+        fields['use_ssl'] = ssl_var
+        row += 1
+        
+        ttk.Label(dialog, text="Silnik PDF:").grid(row=row, column=0, sticky='w', padx=10, pady=5)
+        pdf_engine_var = tk.StringVar(value='pdfplumber')
+        pdf_combo = ttk.Combobox(dialog, textvariable=pdf_engine_var, 
+                                values=['pdfplumber', 'pdfminer.six'], state='readonly', width=37)
+        pdf_combo.grid(row=row, column=1, sticky='ew', padx=10, pady=5)
+        fields['pdf_engine'] = pdf_engine_var
+        row += 1
+        
+        # Buttons
+        button_frame = ttk.Frame(dialog)
+        button_frame.grid(row=row, column=0, columnspan=2, pady=20)
+        
+        def save_account():
+            account = {
+                'name': fields['name'].get().strip(),
+                'email': fields['email'].get().strip(),
+                'protocol': fields['protocol'].get(),
+                'server': fields['server'].get().strip(),
+                'port': fields['port'].get().strip(),
+                'password': fields['password'].get(),
+                'use_ssl': fields['use_ssl'].get(),
+                'pdf_engine': fields['pdf_engine'].get()
+            }
+            
+            if not account['email']:
+                messagebox.showerror("Błąd", "Email jest wymagany", parent=dialog)
+                return
+            
+            if not account['name']:
+                account['name'] = account['email']
+            
+            try:
+                if self.account_manager.add_account(account):
+                    self._refresh_accounts_list()
+                    self.account_info_label.config(text=f"Dodano konto: {account['email']}", 
+                                                  foreground="green")
+                    dialog.destroy()
+                else:
+                    messagebox.showerror("Błąd", "Konto o tym adresie email już istnieje", parent=dialog)
+            except Exception as e:
+                messagebox.showerror("Błąd", f"Nie udało się dodać konta:\n{str(e)}", parent=dialog)
+        
+        ttk.Button(button_frame, text="Zapisz", command=save_account).pack(side='left', padx=5)
+        ttk.Button(button_frame, text="Anuluj", command=dialog.destroy).pack(side='left', padx=5)
+        
+        dialog.columnconfigure(1, weight=1)
+    
+    def _edit_account_dialog(self):
+        """Dialog edycji istniejącego konta"""
+        selection = self.accounts_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("Ostrzeżenie", "Proszę wybrać konto do edycji")
+            return
+        
+        # Get selected account
+        accounts = self.account_manager.get_accounts()
+        account = accounts[selection[0]]
+        
+        dialog = tk.Toplevel(self.root)
+        dialog.title(f"Edytuj konto: {account.get('email')}")
+        dialog.geometry("500x450")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Account fields (similar to add dialog but pre-filled)
+        fields = {}
+        row = 0
+        
+        ttk.Label(dialog, text="Nazwa konta:").grid(row=row, column=0, sticky='w', padx=10, pady=5)
+        fields['name'] = ttk.Entry(dialog, width=40)
+        fields['name'].insert(0, account.get('name', ''))
+        fields['name'].grid(row=row, column=1, sticky='ew', padx=10, pady=5)
+        row += 1
+        
+        ttk.Label(dialog, text="Email:").grid(row=row, column=0, sticky='w', padx=10, pady=5)
+        email_label = ttk.Label(dialog, text=account.get('email', ''), foreground='gray')
+        email_label.grid(row=row, column=1, sticky='w', padx=10, pady=5)
+        row += 1
+        
+        ttk.Label(dialog, text="Protokół:").grid(row=row, column=0, sticky='w', padx=10, pady=5)
+        protocol_var = tk.StringVar(value=account.get('protocol', 'IMAP'))
+        protocol_frame = ttk.Frame(dialog)
+        protocol_frame.grid(row=row, column=1, sticky='w', padx=10, pady=5)
+        ttk.Radiobutton(protocol_frame, text="IMAP", variable=protocol_var, value='IMAP').pack(side='left')
+        ttk.Radiobutton(protocol_frame, text="POP3", variable=protocol_var, value='POP3').pack(side='left')
+        ttk.Radiobutton(protocol_frame, text="Exchange", variable=protocol_var, value='EXCHANGE').pack(side='left')
+        fields['protocol'] = protocol_var
+        row += 1
+        
+        ttk.Label(dialog, text="Serwer:").grid(row=row, column=0, sticky='w', padx=10, pady=5)
+        fields['server'] = ttk.Entry(dialog, width=40)
+        fields['server'].insert(0, account.get('server', ''))
+        fields['server'].grid(row=row, column=1, sticky='ew', padx=10, pady=5)
+        row += 1
+        
+        ttk.Label(dialog, text="Port:").grid(row=row, column=0, sticky='w', padx=10, pady=5)
+        fields['port'] = ttk.Entry(dialog, width=40)
+        fields['port'].insert(0, account.get('port', '993'))
+        fields['port'].grid(row=row, column=1, sticky='ew', padx=10, pady=5)
+        row += 1
+        
+        ttk.Label(dialog, text="Hasło:").grid(row=row, column=0, sticky='w', padx=10, pady=5)
+        fields['password'] = ttk.Entry(dialog, width=40, show='*')
+        fields['password'].insert(0, account.get('password', ''))
+        fields['password'].grid(row=row, column=1, sticky='ew', padx=10, pady=5)
+        row += 1
+        
+        ssl_var = tk.BooleanVar(value=account.get('use_ssl', True))
+        ttk.Checkbutton(dialog, text="Użyj SSL/TLS", variable=ssl_var).grid(
+            row=row, column=0, columnspan=2, padx=10, pady=5)
+        fields['use_ssl'] = ssl_var
+        row += 1
+        
+        ttk.Label(dialog, text="Silnik PDF:").grid(row=row, column=0, sticky='w', padx=10, pady=5)
+        pdf_engine_var = tk.StringVar(value=account.get('pdf_engine', 'pdfplumber'))
+        pdf_combo = ttk.Combobox(dialog, textvariable=pdf_engine_var, 
+                                values=['pdfplumber', 'pdfminer.six'], state='readonly', width=37)
+        pdf_combo.grid(row=row, column=1, sticky='ew', padx=10, pady=5)
+        fields['pdf_engine'] = pdf_engine_var
+        row += 1
+        
+        # Buttons
+        button_frame = ttk.Frame(dialog)
+        button_frame.grid(row=row, column=0, columnspan=2, pady=20)
+        
+        def update_account():
+            updated_data = {
+                'name': fields['name'].get().strip(),
+                'protocol': fields['protocol'].get(),
+                'server': fields['server'].get().strip(),
+                'port': fields['port'].get().strip(),
+                'password': fields['password'].get(),
+                'use_ssl': fields['use_ssl'].get(),
+                'pdf_engine': fields['pdf_engine'].get()
+            }
+            
+            try:
+                if self.account_manager.update_account(account.get('email'), updated_data):
+                    self._refresh_accounts_list()
+                    self.account_info_label.config(text=f"Zaktualizowano konto: {account.get('email')}", 
+                                                  foreground="green")
+                    dialog.destroy()
+                else:
+                    messagebox.showerror("Błąd", "Nie udało się zaktualizować konta", parent=dialog)
+            except Exception as e:
+                messagebox.showerror("Błąd", f"Nie udało się zaktualizować konta:\n{str(e)}", parent=dialog)
+        
+        ttk.Button(button_frame, text="Zapisz", command=update_account).pack(side='left', padx=5)
+        ttk.Button(button_frame, text="Anuluj", command=dialog.destroy).pack(side='left', padx=5)
+        
+        dialog.columnconfigure(1, weight=1)
+    
+    def _delete_account(self):
+        """Usuń wybrane konto"""
+        selection = self.accounts_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("Ostrzeżenie", "Proszę wybrać konto do usunięcia")
+            return
+        
+        accounts = self.account_manager.get_accounts()
+        account = accounts[selection[0]]
+        
+        result = messagebox.askyesno("Potwierdzenie", 
+                                     f"Czy na pewno usunąć konto:\n{account.get('name')} ({account.get('email')})?")
+        if result:
+            try:
+                if self.account_manager.remove_account(account.get('email')):
+                    self._refresh_accounts_list()
+                    self.account_info_label.config(text=f"Usunięto konto: {account.get('email')}", 
+                                                  foreground="orange")
+                else:
+                    messagebox.showerror("Błąd", "Nie udało się usunąć konta")
+            except Exception as e:
+                messagebox.showerror("Błąd", f"Nie udało się usunąć konta:\n{str(e)}")
+    
+    def _load_account_to_fields(self):
+        """Załaduj wybrane konto do pól edycji"""
+        selection = self.accounts_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("Ostrzeżenie", "Proszę wybrać konto do załadowania")
+            return
+        
+        accounts = self.account_manager.get_accounts()
+        account = accounts[selection[0]]
+        self._load_account_to_fields_from_dict(account)
+    
+    def _load_account_to_fields_by_email(self, email):
+        """Załaduj konto po emailu do pól edycji"""
+        account = self.account_manager.get_account_by_email(email)
+        if account:
+            self._load_account_to_fields_from_dict(account)
+    
+    def _load_account_to_fields_from_dict(self, account):
+        """Załaduj dane konta do pól edycji"""
+        # Update protocol
+        self.protocol_var.set(account.get('protocol', 'IMAP'))
+        
+        # Update server
+        self.server_entry.delete(0, tk.END)
+        self.server_entry.insert(0, account.get('server', ''))
+        
+        # Update port
+        self.port_entry.delete(0, tk.END)
+        self.port_entry.insert(0, account.get('port', '993'))
+        
+        # Update email
+        self.email_entry.delete(0, tk.END)
+        self.email_entry.insert(0, account.get('email', ''))
+        
+        # Update password
+        self.password_entry.delete(0, tk.END)
+        self.password_entry.insert(0, account.get('password', ''))
+        
+        # Update SSL
+        self.ssl_var.set(account.get('use_ssl', True))
+        
+        # Update PDF engine
+        if self.pdf_engine_var:
+            self.pdf_engine_var.set(account.get('pdf_engine', 'pdfplumber'))
+        
+        # Update email_config for compatibility
+        self.email_config.update({
+            'protocol': account.get('protocol', 'IMAP'),
+            'server': account.get('server', ''),
+            'port': account.get('port', '993'),
+            'email': account.get('email', ''),
+            'password': account.get('password', ''),
+            'use_ssl': account.get('use_ssl', True),
+            'pdf_engine': account.get('pdf_engine', 'pdfplumber')
+        })
+    
     def save_config(self):
         """Zapisywanie konfiguracji do pliku JSON"""
         # Load existing config to preserve sections managed by other modules (e.g., app.log_level)
@@ -499,9 +912,16 @@ class EmailInvoiceFinderApp:
             with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
                 config = json.load(f)
             
-            # Wczytaj konfigurację email
-            email_cfg = config.get('email_config', {})
-            self.email_config.update(email_cfg)
+            # Load email config for backward compatibility (account manager handles migration)
+            if self.account_manager:
+                # If using account manager, load active account
+                active = self.account_manager.get_active_account()
+                if active:
+                    self.email_config.update(active)
+            else:
+                # Fallback: load old email_config format
+                email_cfg = config.get('email_config', {})
+                self.email_config.update(email_cfg)
             
             # Wczytaj konfigurację wyszukiwania
             search_cfg = config.get('search_config', {})
@@ -513,27 +933,33 @@ class EmailInvoiceFinderApp:
     
     def _apply_loaded_config_to_ui(self):
         """Zastosowanie wczytanej konfiguracji do UI (wywoływane po utworzeniu widgetów)"""
-        # Konfiguracja email
-        if self.email_config.get('protocol'):
-            self.protocol_var.set(self.email_config['protocol'])
-        if self.email_config.get('server'):
-            self.server_entry.delete(0, tk.END)
-            self.server_entry.insert(0, self.email_config['server'])
-        if self.email_config.get('port'):
-            self.port_entry.delete(0, tk.END)
-            self.port_entry.insert(0, self.email_config['port'])
-        if self.email_config.get('email'):
-            self.email_entry.delete(0, tk.END)
-            self.email_entry.insert(0, self.email_config['email'])
-        if self.email_config.get('password'):
-            self.password_entry.delete(0, tk.END)
-            self.password_entry.insert(0, self.email_config['password'])
-        if 'use_ssl' in self.email_config:
-            self.ssl_var.set(self.email_config['use_ssl'])
-        if 'save_email_settings' in self.email_config:
-            self.save_email_config_var.set(self.email_config['save_email_settings'])
-        if 'pdf_engine' in self.email_config and self.pdf_engine_var:
-            self.pdf_engine_var.set(self.email_config['pdf_engine'])
+        # Konfiguracja email - load from active account if available
+        if self.account_manager and self.account_manager.has_accounts():
+            active = self.account_manager.get_active_account()
+            if active:
+                self._load_account_to_fields_from_dict(active)
+        else:
+            # Fallback: use email_config
+            if self.email_config.get('protocol'):
+                self.protocol_var.set(self.email_config['protocol'])
+            if self.email_config.get('server'):
+                self.server_entry.delete(0, tk.END)
+                self.server_entry.insert(0, self.email_config['server'])
+            if self.email_config.get('port'):
+                self.port_entry.delete(0, tk.END)
+                self.port_entry.insert(0, self.email_config['port'])
+            if self.email_config.get('email'):
+                self.email_entry.delete(0, tk.END)
+                self.email_entry.insert(0, self.email_config['email'])
+            if self.email_config.get('password'):
+                self.password_entry.delete(0, tk.END)
+                self.password_entry.insert(0, self.email_config['password'])
+            if 'use_ssl' in self.email_config:
+                self.ssl_var.set(self.email_config['use_ssl'])
+            if 'save_email_settings' in self.email_config:
+                self.save_email_config_var.set(self.email_config['save_email_settings'])
+            if 'pdf_engine' in self.email_config and self.pdf_engine_var:
+                self.pdf_engine_var.set(self.email_config['pdf_engine'])
         
         # Konfiguracja wyszukiwania
         if self.search_config.get('nip'):
@@ -624,7 +1050,7 @@ class EmailInvoiceFinderApp:
             self.email_config = {
                 'protocol': protocol,
                 'server': server,
-                'port': port,
+                'port': str(port),
                 'email': email_addr,
                 'password': password,
                 'use_ssl': use_ssl,
@@ -632,8 +1058,37 @@ class EmailInvoiceFinderApp:
                 'pdf_engine': self.pdf_engine_var.get() if self.pdf_engine_var else 'pdfplumber'
             }
             
-            # Zapisz do pliku jeśli zaznaczono checkbox
-            if self.save_email_config_var.get():
+            # Zapisz do account manager jeśli zaznaczono checkbox
+            if self.save_email_config_var.get() and self.account_manager:
+                # Check if account exists and update, otherwise add
+                existing = self.account_manager.get_account_by_email(email_addr)
+                account_data = {
+                    'name': existing.get('name', email_addr) if existing else email_addr,
+                    'email': email_addr,
+                    'protocol': protocol,
+                    'server': server,
+                    'port': str(port),
+                    'password': password,
+                    'use_ssl': use_ssl,
+                    'pdf_engine': self.pdf_engine_var.get() if self.pdf_engine_var else 'pdfplumber'
+                }
+                
+                if existing:
+                    self.account_manager.update_account(email_addr, account_data)
+                    if hasattr(self, 'account_info_label'):
+                        self.account_info_label.config(text=f"Zaktualizowano konto: {email_addr}", 
+                                                      foreground="green")
+                else:
+                    self.account_manager.add_account(account_data)
+                    if hasattr(self, 'account_info_label'):
+                        self.account_info_label.config(text=f"Dodano nowe konto: {email_addr}", 
+                                                      foreground="green")
+                
+                # Refresh accounts list if it exists
+                if hasattr(self, 'accounts_listbox'):
+                    self._refresh_accounts_list()
+            elif self.save_email_config_var.get():
+                # Fallback: save using old method
                 self.save_config()
             
         except Exception as e:
