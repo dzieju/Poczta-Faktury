@@ -256,8 +256,14 @@ class EmailInvoiceFinderApp:
         self.root.update_idletasks()
         req_w = self.root.winfo_reqwidth()
         req_h = self.root.winfo_reqheight()
+        # Ensure size is at least minimum (600x400)
         final_w = max(req_w, 600)
         final_h = max(req_h, 400)
+        # Clamp to screen size to prevent window larger than screen (with 5% margin)
+        screen_w = self.root.winfo_screenwidth()
+        screen_h = self.root.winfo_screenheight()
+        final_w = min(final_w, int(screen_w * 0.95))
+        final_h = min(final_h, int(screen_h * 0.95))
         self.root.geometry(f"{final_w}x{final_h}")
         
         # Uruchom watcher pliku wersji
