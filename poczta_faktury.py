@@ -259,7 +259,6 @@ class EmailInvoiceFinderApp:
         final_w = max(req_w, 600)
         final_h = max(req_h, 400)
         self.root.geometry(f"{final_w}x{final_h}")
-        self.root.minsize(final_w, final_h)  # Prevent shrinking below fitted size
         
         # Uruchom watcher pliku wersji
         self.root.after(5000, self._watch_version_file)
