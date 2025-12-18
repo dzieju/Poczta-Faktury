@@ -55,6 +55,63 @@ except ImportError:
     from gui.logger import log
     LOG_LEVEL_NAMES = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 
+# Import dialog utilities
+try:
+    from gui.dialog_utils import center_and_clamp_window, safe_show_error, safe_show_info, safe_show_warning
+except ImportError:
+    # Fallback if gui.dialog_utils is not available - define functions inline
+    def center_and_clamp_window(win: tk.Toplevel, parent: tk.Widget = None, max_ratio: float = 0.95):
+        """Center and clamp a Toplevel window to the visible screen area."""
+        win.update_idletasks()
+        sw = win.winfo_screenwidth()
+        sh = win.winfo_screenheight()
+        max_w = int(sw * max_ratio)
+        max_h = int(sh * max_ratio)
+        w = win.winfo_reqwidth() or win.winfo_width()
+        h = win.winfo_reqheight() or win.winfo_height()
+        resized = False
+        if w > max_w:
+            w = max_w
+            resized = True
+        if h > max_h:
+            h = max_h
+            resized = True
+        if resized:
+            win.geometry(f"{w}x{h}")
+        win.update_idletasks()
+        w = win.winfo_width()
+        h = win.winfo_height()
+        if parent:
+            try:
+                px = parent.winfo_rootx()
+                py = parent.winfo_rooty()
+                pw = parent.winfo_width()
+                ph = parent.winfo_height()
+                x = px + (pw - w) // 2
+                y = py + (ph - h) // 2
+            except Exception:
+                x = (sw - w) // 2
+                y = (sh - h) // 2
+        else:
+            x = (sw - w) // 2
+            y = (sh - h) // 2
+        x = max(0, min(x, sw - w))
+        y = max(0, min(y, sh - h))
+        win.geometry(f"{w}x{h}+{x}+{y}")
+        win.update_idletasks()
+    
+    def safe_show_error(title, message, parent=None):
+        """Show error messagebox with parent support"""
+        messagebox.showerror(title, message, parent=parent)
+    
+    def safe_show_info(title, message, parent=None):
+        """Show info messagebox with parent support"""
+        messagebox.showinfo(title, message, parent=parent)
+    
+    def safe_show_warning(title, message, parent=None):
+        """Show warning messagebox with parent support"""
+        messagebox.showwarning(title, message, parent=parent)
+
 # Plik konfiguracyjny
 CONFIG_FILE = Path.home() / '.poczta_faktury_config.json'
 
@@ -524,7 +581,7 @@ class EmailInvoiceFinderApp:
             if open_znalezione_window:
                 open_znalezione_window(self.root, criteria)
             else:
-                messagebox.showinfo("Info", "Okno Znalezione jest niedostępne (brak modułu)")
+                messagebox.showinfo("Info", "Okno Znalezione jest niedostępne (brak modułu)", parent=self.root)
         
         self.znalezione_button = ttk.Button(button_frame, text="Znalezione ➜",
                                              command=_open_znalezione_with_criteria)
@@ -674,9 +731,7 @@ class EmailInvoiceFinderApp:
         """Dialog dodawania nowego konta"""
         dialog = tk.Toplevel(self.root)
         dialog.title("Dodaj nowe konto")
-        dialog.geometry("500x450")
         dialog.transient(self.root)
-        dialog.grab_set()
         
         # Account fields
         fields = {}
@@ -770,12 +825,16 @@ class EmailInvoiceFinderApp:
         ttk.Button(button_frame, text="Anuluj", command=dialog.destroy).pack(side='left', padx=5)
         
         dialog.columnconfigure(1, weight=1)
+        
+        # Center and clamp the dialog window
+        center_and_clamp_window(dialog, parent=self.root)
+        dialog.grab_set()
     
     def _edit_account_dialog(self):
         """Dialog edycji istniejącego konta"""
         selection = self.accounts_listbox.curselection()
         if not selection:
-            messagebox.showwarning("Ostrzeżenie", "Proszę wybrać konto do edycji")
+            messagebox.showwarning("Ostrzeżenie", "Proszę wybrać konto do edycji", parent=self.root)
             return
         
         # Get selected account
@@ -784,9 +843,7 @@ class EmailInvoiceFinderApp:
         
         dialog = tk.Toplevel(self.root)
         dialog.title(f"Edytuj konto: {account.get('email')}")
-        dialog.geometry("500x450")
         dialog.transient(self.root)
-        dialog.grab_set()
         
         # Account fields (similar to add dialog but pre-filled)
         fields = {}
@@ -875,19 +932,24 @@ class EmailInvoiceFinderApp:
         ttk.Button(button_frame, text="Anuluj", command=dialog.destroy).pack(side='left', padx=5)
         
         dialog.columnconfigure(1, weight=1)
+        
+        # Center and clamp the dialog window
+        center_and_clamp_window(dialog, parent=self.root)
+        dialog.grab_set()
     
     def _delete_account(self):
         """Usuń wybrane konto"""
         selection = self.accounts_listbox.curselection()
         if not selection:
-            messagebox.showwarning("Ostrzeżenie", "Proszę wybrać konto do usunięcia")
+            messagebox.showwarning("Ostrzeżenie", "Proszę wybrać konto do usunięcia", parent=self.root)
             return
         
         accounts = self.account_manager.get_accounts()
         account = accounts[selection[0]]
         
         result = messagebox.askyesno("Potwierdzenie", 
-                                     f"Czy na pewno usunąć konto:\n{account.get('name')} ({account.get('email')})?")
+                                     f"Czy na pewno usunąć konto:\n{account.get('name')} ({account.get('email')})?",
+                                     parent=self.root)
         if result:
             try:
                 if self.account_manager.remove_account(account.get('email')):
@@ -895,15 +957,15 @@ class EmailInvoiceFinderApp:
                     self.account_info_label.config(text=f"Usunięto konto: {account.get('email')}", 
                                                   foreground="orange")
                 else:
-                    messagebox.showerror("Błąd", "Nie udało się usunąć konta")
+                    messagebox.showerror("Błąd", "Nie udało się usunąć konta", parent=self.root)
             except Exception as e:
-                messagebox.showerror("Błąd", f"Nie udało się usunąć konta:\n{str(e)}")
+                messagebox.showerror("Błąd", f"Nie udało się usunąć konta:\n{str(e)}", parent=self.root)
     
     def _load_account_to_fields(self):
         """Załaduj wybrane konto do pól edycji"""
         selection = self.accounts_listbox.curselection()
         if not selection:
-            messagebox.showwarning("Ostrzeżenie", "Proszę wybrać konto do załadowania")
+            messagebox.showwarning("Ostrzeżenie", "Proszę wybrać konto do załadowania", parent=self.root)
             return
         
         accounts = self.account_manager.get_accounts()
@@ -990,7 +1052,7 @@ class EmailInvoiceFinderApp:
                 json.dump(existing_config, f, indent=2, ensure_ascii=False)
         except Exception as e:
             print(f"Błąd zapisu konfiguracji: {e}")
-            messagebox.showwarning("Ostrzeżenie", f"Nie udało się zapisać konfiguracji:\n{str(e)}")
+            messagebox.showwarning("Ostrzeżenie", f"Nie udało się zapisać konfiguracji:\n{str(e)}", parent=self.root)
     
     def load_config(self):
         """Wczytywanie konfiguracji z pliku JSON"""
@@ -1103,13 +1165,13 @@ class EmailInvoiceFinderApp:
         use_ssl = self.ssl_var.get()
         
         if not all([server, port, email_addr, password]):
-            messagebox.showerror("Błąd", "Proszę wypełnić wszystkie pola")
+            messagebox.showerror("Błąd", "Proszę wypełnić wszystkie pola", parent=self.root)
             return
         
         try:
             port = int(port)
         except ValueError:
-            messagebox.showerror("Błąd", "Port musi być liczbą")
+            messagebox.showerror("Błąd", "Port musi być liczbą", parent=self.root)
             return
         
         self.status_label.config(text="Łączenie...", foreground="blue")
@@ -1133,7 +1195,7 @@ class EmailInvoiceFinderApp:
                 mail.logout()
             
             self.status_label.config(text="Połączenie udane!", foreground="green")
-            messagebox.showinfo("Sukces", "Połączenie z serwerem poczty powiodło się!")
+            messagebox.showinfo("Sukces", "Połączenie z serwerem poczty powiodło się!", parent=self.root)
             
             # Zapisz konfigurację
             self.email_config = {
@@ -1198,10 +1260,10 @@ class EmailInvoiceFinderApp:
                     url=GOOGLE_APP_PASSWORDS_URL,
                     error=error_msg
                 )
-                messagebox.showerror("Wymagane hasło aplikacji Gmail", detailed_msg)
+                messagebox.showerror("Wymagane hasło aplikacji Gmail", detailed_msg, parent=self.root)
             else:
                 # Standard error message for non-Gmail or other errors
-                messagebox.showerror("Błąd", f"Nie udało się połączyć z serwerem:\n{error_msg}")
+                messagebox.showerror("Błąd", f"Nie udało się połączyć z serwerem:\n{error_msg}", parent=self.root)
     
     def browse_folder(self):
         """Wybór folderu do zapisu"""
@@ -1287,26 +1349,26 @@ class EmailInvoiceFinderApp:
         output_folder = self.folder_entry.get().strip()
         
         if not nip:
-            messagebox.showerror("Błąd", "Proszę podać numer NIP")
+            messagebox.showerror("Błąd", "Proszę podać numer NIP", parent=self.root)
             return
         
         if not output_folder:
-            messagebox.showerror("Błąd", "Proszę wybrać folder zapisu")
+            messagebox.showerror("Błąd", "Proszę wybrać folder zapisu", parent=self.root)
             return
         
         if not os.path.exists(output_folder):
-            messagebox.showerror("Błąd", "Wybrany folder nie istnieje")
+            messagebox.showerror("Błąd", "Wybrany folder nie istnieje", parent=self.root)
             return
         
         if not self.email_config.get('server'):
-            messagebox.showerror("Błąd", "Proszę najpierw skonfigurować połączenie email")
+            messagebox.showerror("Błąd", "Proszę najpierw skonfigurować połączenie email", parent=self.root)
             self.notebook.select(0)  # Przełącz na zakładkę konfiguracji
             return
         
         # Validate date range
         is_valid, date_from, date_to, error_msg = self.validate_date_range()
         if not is_valid:
-            messagebox.showerror("Błąd zakresu dat", error_msg)
+            messagebox.showerror("Błąd zakresu dat", error_msg, parent=self.root)
             return
         
         # Update search_config
@@ -1497,15 +1559,18 @@ class EmailInvoiceFinderApp:
                 # Show message box from main thread
                 if found_count > 0:
                     self.root.after(0, lambda: messagebox.showinfo("Sukces", 
-                        f"Znaleziono {found_count} faktur(y) z podanym NIP.\nPliki zapisano w: {output_folder}"))
+                        f"Znaleziono {found_count} faktur(y) z podanym NIP.\nPliki zapisano w: {output_folder}",
+                        parent=self.root))
                 else:
                     self.root.after(0, lambda: messagebox.showinfo("Informacja", 
-                        "Nie znaleziono faktur z podanym NIP"))
+                        "Nie znaleziono faktur z podanym NIP",
+                        parent=self.root))
         
         except Exception as e:
             self.safe_log(f"\nBŁĄD: {str(e)}")
             self.root.after(0, lambda: messagebox.showerror("Błąd", 
-                f"Wystąpił błąd podczas wyszukiwania:\n{str(e)}"))
+                f"Wystąpił błąd podczas wyszukiwania:\n{str(e)}",
+                parent=self.root))
         
         finally:
             # Restore UI state from main thread
@@ -1908,19 +1973,19 @@ class EmailInvoiceFinderApp:
         output_folder = self.folder_entry.get().strip()
         
         if not nip:
-            messagebox.showerror("Błąd", "Proszę podać numer NIP")
+            messagebox.showerror("Błąd", "Proszę podać numer NIP", parent=self.root)
             return
         
         if not output_folder:
-            messagebox.showerror("Błąd", "Proszę wybrać folder zapisu")
+            messagebox.showerror("Błąd", "Proszę wybrać folder zapisu", parent=self.root)
             return
         
         if not os.path.exists(output_folder):
-            messagebox.showerror("Błąd", "Wybrany folder nie istnieje")
+            messagebox.showerror("Błąd", "Wybrany folder nie istnieje", parent=self.root)
             return
         
         if not self.email_config.get('server'):
-            messagebox.showerror("Błąd", "Proszę najpierw skonfigurować połączenie email")
+            messagebox.showerror("Błąd", "Proszę najpierw skonfigurować połączenie email", parent=self.root)
             self.notebook.select(0)  # Przełącz na zakładkę konfiguracji
             return
         
@@ -1961,14 +2026,14 @@ class EmailInvoiceFinderApp:
             self.results_text.insert(tk.END, f"Znaleziono faktur z NIP {nip}: {found_count}\n")
             
             if found_count > 0:
-                messagebox.showinfo("Sukces", f"Znaleziono {found_count} faktur(y) z podanym NIP.\nPliki zapisano w: {output_folder}")
+                messagebox.showinfo("Sukces", f"Znaleziono {found_count} faktur(y) z podanym NIP.\nPliki zapisano w: {output_folder}", parent=self.root)
             else:
-                messagebox.showinfo("Informacja", "Nie znaleziono faktur z podanym NIP")
+                messagebox.showinfo("Informacja", "Nie znaleziono faktur z podanym NIP", parent=self.root)
             
         except Exception as e:
             self.progress.stop()
             self.results_text.insert(tk.END, f"\nBŁĄD: {str(e)}\n")
-            messagebox.showerror("Błąd", f"Wystąpił błąd podczas wyszukiwania:\n{str(e)}")
+            messagebox.showerror("Błąd", f"Wystąpił błąd podczas wyszukiwania:\n{str(e)}", parent=self.root)
     
     def search_with_imap(self, nip, output_folder):
         """DEPRECATED: Wyszukiwanie przez IMAP (use _search_with_imap_threaded instead)"""
@@ -2243,7 +2308,7 @@ class EmailInvoiceFinderApp:
             open_znalezione_window(self.root, search_criteria)
             
         except Exception as e:
-            messagebox.showerror("Błąd", f"Nie można otworzyć okna wyników: {str(e)}")
+            messagebox.showerror("Błąd", f"Nie można otworzyć okna wyników: {str(e)}", parent=self.root)
 
 
 def main():

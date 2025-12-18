@@ -36,6 +36,51 @@ except ImportError:
     EmailSearchEngine = None
     search_messages = None
 
+# Import dialog utilities
+try:
+    from gui.dialog_utils import center_and_clamp_window
+except ImportError:
+    # Fallback if gui.dialog_utils is not available - define function inline
+    def center_and_clamp_window(win, parent=None, max_ratio=0.95):
+        """Center and clamp a Toplevel window to the visible screen area."""
+        win.update_idletasks()
+        sw = win.winfo_screenwidth()
+        sh = win.winfo_screenheight()
+        max_w = int(sw * max_ratio)
+        max_h = int(sh * max_ratio)
+        w = win.winfo_reqwidth() or win.winfo_width()
+        h = win.winfo_reqheight() or win.winfo_height()
+        resized = False
+        if w > max_w:
+            w = max_w
+            resized = True
+        if h > max_h:
+            h = max_h
+            resized = True
+        if resized:
+            win.geometry(f"{w}x{h}")
+        win.update_idletasks()
+        w = win.winfo_width()
+        h = win.winfo_height()
+        if parent:
+            try:
+                px = parent.winfo_rootx()
+                py = parent.winfo_rooty()
+                pw = parent.winfo_width()
+                ph = parent.winfo_height()
+                x = px + (pw - w) // 2
+                y = py + (ph - h) // 2
+            except Exception:
+                x = (sw - w) // 2
+                y = (sh - h) // 2
+        else:
+            x = (sw - w) // 2
+            y = (sh - h) // 2
+        x = max(0, min(x, sw - w))
+        y = max(0, min(y, sh - h))
+        win.geometry(f"{w}x{h}+{x}+{y}")
+        win.update_idletasks()
+
 # Config file path constant
 CONFIG_FILE = Path.home() / '.poczta_faktury_config.json'
 
@@ -102,10 +147,12 @@ class ZnalezioneWindow:
         # Create window
         self.window = tk.Toplevel(parent)
         self.window.title("Znalezione - Wyniki wyszukiwania")
-        self.window.geometry("1000x700")
         
         # Create UI
         self.create_widgets()
+        
+        # Center and clamp the window
+        center_and_clamp_window(self.window, parent=parent)
         
         # If search criteria provided, start search automatically
         if self.search_criteria:
@@ -288,7 +335,7 @@ class ZnalezioneWindow:
         if self.search_criteria:
             self.start_search()
         else:
-            messagebox.showinfo("Info", "Brak kryteriów wyszukiwania do odświeżenia")
+            messagebox.showinfo("Info", "Brak kryteriów wyszukiwania do odświeżenia", parent=self.window)
     
     def clear_results(self):
         """Clear the results table"""
@@ -306,7 +353,7 @@ class ZnalezioneWindow:
         # Normalize path for security
         folder_path = os.path.abspath(folder_path)
         if not os.path.isdir(folder_path):
-            messagebox.showinfo("Info", f"Folder nie istnieje: {folder_path}")
+            messagebox.showinfo("Info", f"Folder nie istnieje: {folder_path}", parent=self.window)
             return
         try:
             # Get all PDF files
@@ -383,7 +430,7 @@ class ZnalezioneWindow:
             self.results_label.config(text=f"Znaleziono: {len(pdf_files)} plików")
         except Exception as e:
             log(f"Błąd podczas wczytywania folderu wyników: {e}", level="ERROR")
-            messagebox.showerror("Błąd", f"Nie udało się wczytać folderu wyników:\n{str(e)}")
+            messagebox.showerror("Błąd", f"Nie udało się wczytać folderu wyników:\n{str(e)}", parent=self.window)
     
     def show_placeholder_results(self):
         """Show placeholder results (for demonstration)"""
@@ -476,7 +523,8 @@ class ZnalezioneWindow:
             # No files available, show informational message
             messagebox.showinfo(
                 "Brak plików",
-                "Nie znaleziono plików PDF ani Email dla tej pozycji."
+                "Nie znaleziono plików PDF ani Email dla tej pozycji.",
+                parent=self.window
             )
     
     def _open_pdf_from_context_menu(self, item_id):
@@ -490,7 +538,7 @@ class ZnalezioneWindow:
         pdf_paths = metadata.get('pdf_paths', [])
         
         if not pdf_paths:
-            messagebox.showwarning("Ostrzeżenie", "Nie znaleziono ścieżki do pliku PDF")
+            messagebox.showwarning("Ostrzeżenie", "Nie znaleziono ścieżki do pliku PDF", parent=self.window)
             return
         
         # Find the first existing PDF file
@@ -503,7 +551,8 @@ class ZnalezioneWindow:
         if not pdf_path:
             messagebox.showerror(
                 "Błąd",
-                f"Plik PDF nie istnieje:\n{pdf_paths[0]}"
+                f"Plik PDF nie istnieje:\n{pdf_paths[0]}",
+                parent=self.window
             )
             log(f"PDF file not found: {pdf_paths[0]}", level="ERROR")
             return
@@ -514,7 +563,7 @@ class ZnalezioneWindow:
         except Exception as e:
             error_msg = self._format_file_error_message("PDF", pdf_path, e)
             log(f"Error opening PDF via context menu: {e}", level="ERROR")
-            messagebox.showerror("Błąd", error_msg)
+            messagebox.showerror("Błąd", error_msg, parent=self.window)
     
     def _open_email_from_context_menu(self, item_id):
         """
@@ -527,13 +576,14 @@ class ZnalezioneWindow:
         eml_path = metadata.get('eml_path')
         
         if not eml_path:
-            messagebox.showwarning("Ostrzeżenie", "Nie znaleziono ścieżki do pliku Email")
+            messagebox.showwarning("Ostrzeżenie", "Nie znaleziono ścieżki do pliku Email", parent=self.window)
             return
         
         if not os.path.isfile(eml_path):
             messagebox.showerror(
                 "Błąd",
-                f"Plik Email nie istnieje:\n{eml_path}"
+                f"Plik Email nie istnieje:\n{eml_path}",
+                parent=self.window
             )
             log(f"EML file not found: {eml_path}", level="ERROR")
             return
@@ -544,13 +594,13 @@ class ZnalezioneWindow:
         except Exception as e:
             error_msg = self._format_file_error_message("Email", eml_path, e)
             log(f"Error opening EML via context menu: {e}", level="ERROR")
-            messagebox.showerror("Błąd", error_msg)
+            messagebox.showerror("Błąd", error_msg, parent=self.window)
     
     def open_attachment(self):
         """Open the selected message's PDF attachment"""
         selection = self.tree.selection()
         if not selection:
-            messagebox.showinfo("Info", "Wybierz wiadomość z tabeli")
+            messagebox.showinfo("Info", "Wybierz wiadomość z tabeli", parent=self.window)
             return
         
         item_id = selection[0]
@@ -571,7 +621,7 @@ class ZnalezioneWindow:
                     pdf_paths = [pdf_path]
         
         if not pdf_paths:
-            messagebox.showwarning("Ostrzeżenie", "Nie znaleziono ścieżki do załącznika PDF")
+            messagebox.showwarning("Ostrzeżenie", "Nie znaleziono ścieżki do załącznika PDF", parent=self.window)
             log("No PDF path found for selected item", level="WARNING")
             return
         
@@ -585,7 +635,8 @@ class ZnalezioneWindow:
         if not pdf_path:
             messagebox.showerror(
                 "Błąd",
-                f"Plik PDF nie istnieje:\n{pdf_paths[0]}"
+                f"Plik PDF nie istnieje:\n{pdf_paths[0]}",
+                parent=self.window
             )
             log(f"PDF file not found: {pdf_paths[0]}", level="ERROR")
             return
@@ -596,13 +647,13 @@ class ZnalezioneWindow:
         except Exception as e:
             error_msg = self._format_file_error_message("PDF", pdf_path, e)
             log(f"Error opening PDF attachment: {e}", level="ERROR")
-            messagebox.showerror("Błąd", error_msg)
+            messagebox.showerror("Błąd", error_msg, parent=self.window)
     
     def show_in_mail(self):
         """Show the selected message in the mail client (open .eml file)"""
         selection = self.tree.selection()
         if not selection:
-            messagebox.showinfo("Info", "Wybierz wiadomość z tabeli")
+            messagebox.showinfo("Info", "Wybierz wiadomość z tabeli", parent=self.window)
             return
         
         item_id = selection[0]
@@ -614,14 +665,16 @@ class ZnalezioneWindow:
         if not eml_path:
             messagebox.showwarning("Ostrzeżenie", 
                 "Plik .eml nie jest dostępny.\n\n"
-                "Ta funkcja działa tylko gdy wiadomości są zapisane jako pliki .eml na dysku.")
+                "Ta funkcja działa tylko gdy wiadomości są zapisane jako pliki .eml na dysku.",
+                parent=self.window)
             log("No EML path found for selected item", level="WARNING")
             return
         
         if not os.path.isfile(eml_path):
             messagebox.showerror(
                 "Błąd",
-                f"Plik Email nie istnieje:\n{eml_path}"
+                f"Plik Email nie istnieje:\n{eml_path}",
+                parent=self.window
             )
             log(f"EML file not found: {eml_path}", level="ERROR")
             return
@@ -632,7 +685,7 @@ class ZnalezioneWindow:
         except Exception as e:
             error_msg = self._format_file_error_message("Email", eml_path, e)
             log(f"Error opening EML file: {e}", level="ERROR")
-            messagebox.showerror("Błąd", error_msg)
+            messagebox.showerror("Błąd", error_msg, parent=self.window)
     
     def _format_file_error_message(self, file_type, file_path, error):
         """
