@@ -145,7 +145,10 @@ class EmailInvoiceFinderApp:
         # Ustaw tytuł okna z wersją
         self._update_window_title()
         
+        # Enable window resizing for better element display
         self.root.geometry("800x600")
+        self.root.minsize(600, 400)  # Set minimum size to prevent too small window
+        self.root.resizable(True, True)  # Enable resizing in both directions
         
         # Initialize EmailAccountManager
         if EmailAccountManager:
@@ -207,9 +210,9 @@ class EmailInvoiceFinderApp:
         self.notebook.add(self.config_frame, text="Ustawienia")
         self.create_email_config_tab()
         
-        # Zakładka 2: Wyszukiwanie NIP
+        # Zakładka 2: Wyszukiwanie
         self.search_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.search_frame, text="Wyszukiwanie NIP")
+        self.notebook.add(self.search_frame, text="Wyszukiwanie")
         self.create_search_tab()
         
         # Zakładka 3: O programie
@@ -410,7 +413,7 @@ class EmailInvoiceFinderApp:
     def create_search_tab(self):
         """Tworzenie zakładki wyszukiwania"""
         # NIP
-        ttk.Label(self.search_frame, text="Numer NIP:").grid(row=0, column=0, sticky='w', padx=10, pady=5)
+        ttk.Label(self.search_frame, text="Wyszukaj:").grid(row=0, column=0, sticky='w', padx=10, pady=5)
         self.nip_entry = ttk.Entry(self.search_frame, width=40)
         self.nip_entry.grid(row=0, column=1, sticky='ew', padx=10, pady=5)
         
@@ -481,7 +484,7 @@ class EmailInvoiceFinderApp:
         ttk.Checkbutton(self.search_frame, text="Zapisz ustawienia", 
                        variable=self.save_search_config_var).grid(row=3, column=0, columnspan=2, padx=10, pady=5)
         
-        # Sortuj w folderach - checkbox umieszczony w zakładce "Wyszukiwanie NIP"
+        # Sortuj w folderach - checkbox umieszczony w zakładce "Wyszukiwanie"
         # Gdy zaznaczony, podczas zapisu wyników utworzone zostaną podfoldery MM.YYYY (np. 10.2025)
         self.sort_in_folders_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(self.search_frame, text="Sortuj w folderach", 
