@@ -10,8 +10,16 @@ import email
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-def create_test_eml(sender_email, subject, tmpdir, index):
-    """Create a test EML file"""
+def create_test_eml(sender_email, subject, tmpdir, index, use_poczta_subfolder=True):
+    """Create a test EML file
+    
+    Args:
+        sender_email: Email address of sender
+        subject: Email subject
+        tmpdir: Base directory for files
+        index: File index number
+        use_poczta_subfolder: If True, save in Poczta subfolder (new behavior)
+    """
     msg = MIMEMultipart()
     msg['From'] = f'Test Sender {index} <{sender_email}>'
     msg['To'] = 'recipient@example.com'
@@ -21,7 +29,14 @@ def create_test_eml(sender_email, subject, tmpdir, index):
     body = f"This is a test email message number {index}"
     msg.attach(MIMEText(body, 'plain'))
     
-    eml_path = os.path.join(tmpdir, f'{index}_email.eml')
+    # Save in Poczta subfolder if requested
+    if use_poczta_subfolder:
+        poczta_folder = os.path.join(tmpdir, "Poczta")
+        os.makedirs(poczta_folder, exist_ok=True)
+        eml_path = os.path.join(poczta_folder, f'{index}_email.eml')
+    else:
+        eml_path = os.path.join(tmpdir, f'{index}_email.eml')
+    
     with open(eml_path, 'wb') as f:
         f.write(msg.as_bytes())
     
@@ -98,14 +113,27 @@ def test_load_results_from_folder():
         
         print(f"  Found {len(pdf_files)} PDF files")
         
-        # Create mapping of EML files
+        # Create mapping of EML files (check Poczta subfolder first, then main folder)
         eml_files = {}
+        poczta_folder = os.path.join(tmpdir, "Poczta")
+        
+        # Check Poczta subfolder first (new location)
+        if os.path.exists(poczta_folder) and os.path.isdir(poczta_folder):
+            for f in os.listdir(poczta_folder):
+                if f.lower().endswith('.eml'):
+                    parts = f.split('_')
+                    if parts:
+                        num = parts[0]
+                        eml_files[num] = os.path.join(poczta_folder, f)
+        
+        # Fall back to main folder for backwards compatibility
         for f in os.listdir(tmpdir):
             if f.lower().endswith('.eml'):
                 parts = f.split('_')
                 if parts:
                     num = parts[0]
-                    eml_files[num] = os.path.join(tmpdir, f)
+                    if num not in eml_files:
+                        eml_files[num] = os.path.join(tmpdir, f)
         
         print(f"  Found {len(eml_files)} EML files")
         
@@ -289,18 +317,20 @@ def test_folder_sorting():
         
         print(f"  ✓ File timestamp correctly set to email date")
         
-        # Test creating EML with same logic
-        eml_path = os.path.join(expected_subfolder, "1_email.eml")
+        # Test creating EML in Poczta subfolder with same logic
+        poczta_folder = os.path.join(expected_subfolder, "Poczta")
+        os.makedirs(poczta_folder, exist_ok=True)
+        eml_path = os.path.join(poczta_folder, "1_email.eml")
         with open(eml_path, 'wb') as f:
             f.write(msg.as_bytes())
         
         os.utime(eml_path, (timestamp, timestamp))
         
         if not os.path.exists(eml_path):
-            print(f"  ✗ EML file not created")
+            print(f"  ✗ EML file not created in Poczta subfolder")
             return False
         
-        print(f"  ✓ EML file created and timestamped in subfolder")
+        print(f"  ✓ EML file created and timestamped in Poczta subfolder")
         
         print("\n  ✓ Folder sorting test passed")
         return True

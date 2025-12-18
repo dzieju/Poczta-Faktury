@@ -121,19 +121,32 @@ def test_eml_pdf_mapping():
         for pdf in pdf_files:
             Path(os.path.join(tmpdir, pdf)).touch()
         
+        # Create EML files in Poczta subfolder (new behavior)
+        poczta_folder = os.path.join(tmpdir, "Poczta")
+        os.makedirs(poczta_folder, exist_ok=True)
         for eml in eml_files:
-            Path(os.path.join(tmpdir, eml)).touch()
+            Path(os.path.join(poczta_folder, eml)).touch()
         
         print(f"  ✓ Created test files in {tmpdir}")
         
-        # Test mapping logic
+        # Test mapping logic (check Poczta subfolder first, then main folder)
         eml_map = {}
+        if os.path.exists(poczta_folder) and os.path.isdir(poczta_folder):
+            for f in os.listdir(poczta_folder):
+                if f.lower().endswith('.eml'):
+                    parts = f.split('_')
+                    if parts:
+                        num = parts[0]
+                        eml_map[num] = os.path.join(poczta_folder, f)
+        
+        # Fall back to main folder for backwards compatibility
         for f in os.listdir(tmpdir):
             if f.lower().endswith('.eml'):
                 parts = f.split('_')
                 if parts:
                     num = parts[0]
-                    eml_map[num] = os.path.join(tmpdir, f)
+                    if num not in eml_map:
+                        eml_map[num] = os.path.join(tmpdir, f)
         
         # Verify mappings
         for pdf in pdf_files:
