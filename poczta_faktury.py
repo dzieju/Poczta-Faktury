@@ -63,14 +63,53 @@ VERSION_FILE = Path(__file__).parent / 'version.txt'
 
 # Gmail authentication constants
 GOOGLE_APP_PASSWORDS_URL = 'https://myaccount.google.com/apppasswords'
-GMAIL_AUTH_ERROR_KEYWORDS = [
+GOOGLE_APP_PASSWORDS_URL_DISPLAY = 'myaccount.google.com/apppasswords'
+
+# Gmail-specific authentication error keywords (highly specific to Gmail)
+GMAIL_SPECIFIC_ERROR_KEYWORDS = [
     'application-specific password',
     'app-specific password', 
     'app password',
+]
+
+# Generic authentication error keywords (could occur with Gmail or other providers)
+GMAIL_GENERIC_ERROR_KEYWORDS = [
     'username and password not accepted',
     '[auth]',
     'invalid credentials'
 ]
+
+# Combined list for checking
+GMAIL_AUTH_ERROR_KEYWORDS = GMAIL_SPECIFIC_ERROR_KEYWORDS + GMAIL_GENERIC_ERROR_KEYWORDS
+
+
+def is_gmail_server(server):
+    """
+    Check if the given server hostname is a Gmail server.
+    
+    This function checks if the server is exactly 'gmail.com' or ends with '.gmail.com'
+    (e.g., imap.gmail.com, pop.gmail.com, smtp.gmail.com).
+    
+    Args:
+        server (str): Server hostname to check
+        
+    Returns:
+        bool: True if the server is a Gmail server, False otherwise
+        
+    Examples:
+        >>> is_gmail_server('imap.gmail.com')
+        True
+        >>> is_gmail_server('gmail.com')
+        True
+        >>> is_gmail_server('notgmail.com')
+        False
+        >>> is_gmail_server('gmail.com.attacker.com')
+        False
+    """
+    if not server:
+        return False
+    server_lower = server.lower()
+    return server_lower == 'gmail.com' or server_lower.endswith('.gmail.com')
 
 
 class EmailInvoiceFinderApp:
@@ -204,7 +243,7 @@ class EmailInvoiceFinderApp:
         
         gmail_info_label = ttk.Label(
             gmail_info_frame, 
-            text=f"Gmail: Użyj hasła aplikacji zamiast zwykłego hasła ({GOOGLE_APP_PASSWORDS_URL.replace('https://', '')})",
+            text=f"Gmail: Użyj hasła aplikacji zamiast zwykłego hasła ({GOOGLE_APP_PASSWORDS_URL_DISPLAY})",
             font=("TkDefaultFont", 8),
             foreground="#0066cc"
         )
@@ -1124,9 +1163,7 @@ class EmailInvoiceFinderApp:
             # Detect Gmail authentication errors requiring app-specific password
             # Note: This is for UX (showing helpful error messages), not security validation
             # The server hostname comes from user input in GUI, not from untrusted sources
-            # We check if server is exactly gmail.com or ends with .gmail.com (subdomain)
-            server_lower = server.lower()
-            is_gmail = server_lower == 'gmail.com' or server_lower.endswith('.gmail.com')
+            is_gmail = is_gmail_server(server)
             is_auth_error = any(keyword in error_msg.lower() for keyword in GMAIL_AUTH_ERROR_KEYWORDS)
             
             if is_gmail and is_auth_error:
