@@ -22,16 +22,52 @@ python main.py
 ### 3. Ustawienia / Settings
 
 #### Przykład dla Gmail:
-- **Protokół**: IMAP
-- **Serwer**: imap.gmail.com
-- **Port**: 993
+- **Protokół**: IMAP (zalecane) lub POP3
+- **Serwer**: 
+  - IMAP: imap.gmail.com
+  - POP3: pop.gmail.com
+- **Port**: 
+  - IMAP: 993
+  - POP3: 995
 - **Email**: twoj.email@gmail.com
-- **Hasło**: hasło aplikacji (wygenerowane w ustawieniach Google)
+- **Hasło**: **hasło aplikacji** (NIE twoje zwykłe hasło Gmail!)
 - **SSL**: ✓ (zaznaczone)
 
-**Uwaga dla Gmail**: 
-- Musisz utworzyć hasło aplikacji w ustawieniach konta Google
-- Przejdź do: Konto Google → Bezpieczeństwo → Weryfikacja dwuetapowa → Hasła aplikacji
+**WAŻNE - Konfiguracja hasła aplikacji dla Gmail:**
+
+Gmail wymaga hasła aplikacji (App Password) do połączeń przez IMAP/POP3, jeśli masz włączoną weryfikację dwuetapową. Bez hasła aplikacji zobaczysz błąd typu: `[AUTH] Application-specific password required`.
+
+**Krok po kroku - generowanie hasła aplikacji:**
+
+1. **Włącz weryfikację dwuetapową** (jeśli jeszcze nie jest włączona):
+   - Przejdź do https://myaccount.google.com/security
+   - Znajdź sekcję "Jak logujesz się w Google"
+   - Kliknij "Weryfikacja dwuetapowa" i postępuj zgodnie z instrukcjami
+
+2. **Wygeneruj hasło aplikacji**:
+   - Przejdź bezpośrednio do: https://myaccount.google.com/apppasswords
+   - (lub: Konto Google → Bezpieczeństwo → Weryfikacja dwuetapowa → Hasła aplikacji)
+   - Zaloguj się ponownie, jeśli zostaniesz o to poproszony
+   
+3. **Utwórz nowe hasło**:
+   - W polu "Wybierz aplikację" wybierz: **Poczta**
+   - W polu "Wybierz urządzenie" wybierz: **Komputer z systemem Windows** (lub inne)
+   - Kliknij **Generuj**
+
+4. **Skopiuj hasło**:
+   - Google wyświetli 16-znakowe hasło (w formacie: xxxx xxxx xxxx xxxx)
+   - **Skopiuj to hasło** (możesz usunąć spacje lub wpisać je ze spacjami)
+   - Hasło pojawi się tylko raz - zapisz je w bezpiecznym miejscu!
+
+5. **Użyj hasła w aplikacji**:
+   - Wklej wygenerowane hasło aplikacji w pole "Hasło" w Poczta-Faktury
+   - Kliknij "Testuj połączenie" aby sprawdzić poprawność konfiguracji
+
+**Rozwiązywanie problemów:**
+- Jeśli nie widzisz opcji "Hasła aplikacji", upewnij się że weryfikacja dwuetapowa jest włączona
+- Jeśli nadal masz problemy, sprawdź czy Twoje konto nie ma dodatkowych ograniczeń bezpieczeństwa
+- Możesz wygenerować wiele haseł aplikacji dla różnych urządzeń/aplikacji
+- Możesz odwołać hasło aplikacji w dowolnym momencie w tych samych ustawieniach
 
 #### Przykład dla Outlook/Office365:
 - **Protokół**: IMAP

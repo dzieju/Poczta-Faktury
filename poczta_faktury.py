@@ -61,6 +61,77 @@ CONFIG_FILE = Path.home() / '.poczta_faktury_config.json'
 # Plik z wersją aplikacji
 VERSION_FILE = Path(__file__).parent / 'version.txt'
 
+# Gmail authentication constants
+GOOGLE_APP_PASSWORDS_URL = 'https://myaccount.google.com/apppasswords'
+GOOGLE_APP_PASSWORDS_URL_DISPLAY = 'myaccount.google.com/apppasswords'
+
+# Gmail-specific authentication error keywords (highly specific to Gmail)
+GMAIL_SPECIFIC_ERROR_KEYWORDS = [
+    'application-specific password',
+    'app-specific password',
+    'app-specific password required',
+    'app password',
+    'please use an app password',
+]
+
+# Generic authentication error keywords (could occur with Gmail or other providers)
+GMAIL_GENERIC_ERROR_KEYWORDS = [
+    'username and password not accepted',
+    '[auth]',
+    'invalid credentials'
+]
+
+# Combined list for checking
+GMAIL_AUTH_ERROR_KEYWORDS = GMAIL_SPECIFIC_ERROR_KEYWORDS + GMAIL_GENERIC_ERROR_KEYWORDS
+
+# Gmail authentication error message template
+GMAIL_AUTH_ERROR_MESSAGE_TEMPLATE = """❌ BŁĄD UWIERZYTELNIANIA GMAIL
+
+Gmail wymaga użycia HASŁA APLIKACJI zamiast zwykłego hasła konta.
+
+📋 Jak wygenerować hasło aplikacji:
+
+1. Przejdź do: {url}
+2. Zaloguj się do swojego konta Google
+3. Upewnij się, że weryfikacja dwuetapowa jest włączona
+4. Wybierz: Aplikacja = 'Poczta', Urządzenie = 'Komputer'
+5. Kliknij 'Generuj'
+6. Skopiuj 16-znakowe hasło (bez spacji)
+7. Użyj tego hasła w polu 'Hasło' w tej aplikacji
+
+📖 Szczegółowa instrukcja: Zobacz plik USAGE.md lub README.md
+
+Oryginalny błąd: {error}"""
+
+
+def is_gmail_server(server):
+    """
+    Check if the given server hostname is a Gmail server.
+    
+    This function checks if the server is exactly 'gmail.com' or ends with '.gmail.com'
+    (e.g., imap.gmail.com, pop.gmail.com, smtp.gmail.com).
+    
+    Args:
+        server (str): Server hostname to check
+        
+    Returns:
+        bool: True if the server is a Gmail server, False otherwise
+        
+    Examples:
+        >>> is_gmail_server('imap.gmail.com')
+        True
+        >>> is_gmail_server('gmail.com')
+        True
+        >>> is_gmail_server('notgmail.com')
+        False
+        >>> is_gmail_server('gmail.com.attacker.com')
+        False
+    """
+    if not server:
+        return False
+    server_lower = server.lower()
+    return server_lower == 'gmail.com' or server_lower.endswith('.gmail.com')
+
 
 class EmailInvoiceFinderApp:
     """Główna aplikacja do wyszukiwania faktur"""
@@ -184,36 +255,51 @@ class EmailInvoiceFinderApp:
         self.password_entry = ttk.Entry(self.config_frame, width=40, show='*')
         self.password_entry.grid(row=4, column=1, sticky='ew', padx=10, pady=5)
         
+        # Gmail info label
+        gmail_info_frame = ttk.Frame(self.config_frame)
+        gmail_info_frame.grid(row=5, column=0, columnspan=2, sticky='w', padx=10, pady=(0, 5))
+        
+        info_icon = ttk.Label(gmail_info_frame, text="ℹ️", font=("TkDefaultFont", 10))
+        info_icon.pack(side='left', padx=(0, 5))
+        
+        gmail_info_label = ttk.Label(
+            gmail_info_frame, 
+            text=f"Gmail: Użyj hasła aplikacji zamiast zwykłego hasła ({GOOGLE_APP_PASSWORDS_URL_DISPLAY})",
+            font=("TkDefaultFont", 8),
+            foreground="#0066cc"
+        )
+        gmail_info_label.pack(side='left')
+        
         # Pokaż hasło
         self.show_password_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(self.config_frame, text="Pokaż hasło", 
                        variable=self.show_password_var,
-                       command=self.toggle_show_password).grid(row=5, column=0, columnspan=2, padx=10, pady=5)
+                       command=self.toggle_show_password).grid(row=6, column=0, columnspan=2, padx=10, pady=5)
         
         # SSL
         self.ssl_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(self.config_frame, text="Użyj SSL/TLS", 
-                       variable=self.ssl_var).grid(row=6, column=0, columnspan=2, padx=10, pady=5)
+                       variable=self.ssl_var).grid(row=7, column=0, columnspan=2, padx=10, pady=5)
         
         # Zapisz ustawienia
         self.save_email_config_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(self.config_frame, text="Zapisz ustawienia", 
-                       variable=self.save_email_config_var).grid(row=7, column=0, columnspan=2, padx=10, pady=5)
+                       variable=self.save_email_config_var).grid(row=8, column=0, columnspan=2, padx=10, pady=5)
         
         # Przycisk testowania połączenia
         ttk.Button(self.config_frame, text="Testuj połączenie", 
-                  command=self.test_connection).grid(row=8, column=0, columnspan=2, pady=20)
+                  command=self.test_connection).grid(row=9, column=0, columnspan=2, pady=20)
         
         # Status
         self.status_label = ttk.Label(self.config_frame, text="", foreground="blue")
-        self.status_label.grid(row=9, column=0, columnspan=2, padx=10, pady=5)
+        self.status_label.grid(row=10, column=0, columnspan=2, padx=10, pady=5)
         
         # Separator between mail config and PDF engine settings
-        ttk.Separator(self.config_frame, orient='horizontal').grid(row=10, column=0, columnspan=2, sticky='ew', padx=10, pady=20)
+        ttk.Separator(self.config_frame, orient='horizontal').grid(row=11, column=0, columnspan=2, sticky='ew', padx=10, pady=20)
         
         # PDF Engine selection - Create a frame to hold both the label and current engine display
         pdf_header_frame = ttk.Frame(self.config_frame)
-        pdf_header_frame.grid(row=11, column=0, columnspan=2, sticky='w', padx=10, pady=(10, 5))
+        pdf_header_frame.grid(row=12, column=0, columnspan=2, sticky='w', padx=10, pady=(10, 5))
         
         ttk.Label(pdf_header_frame, text="Silnik PDF:", font=("TkDefaultFont", 10, "bold")).pack(side='left')
         
@@ -226,20 +312,20 @@ class EmailInvoiceFinderApp:
         )
         self.current_engine_label.pack(side='left', padx=5)
         
-        ttk.Label(self.config_frame, text="Wybierz silnik ekstrakcji tekstu:").grid(row=12, column=0, sticky='w', padx=10, pady=5)
+        ttk.Label(self.config_frame, text="Wybierz silnik ekstrakcji tekstu:").grid(row=13, column=0, sticky='w', padx=10, pady=5)
         self.pdf_engine_var = tk.StringVar(value='pdfplumber')
         # Bind callback to update the current engine display when selection changes
         self.pdf_engine_var.trace_add('write', self._on_pdf_engine_changed)
         pdf_engine_combo = ttk.Combobox(self.config_frame, textvariable=self.pdf_engine_var, 
                                         values=['pdfplumber', 'pdfminer.six'], 
                                         state='readonly', width=37)
-        pdf_engine_combo.grid(row=12, column=1, sticky='ew', padx=10, pady=5)
+        pdf_engine_combo.grid(row=13, column=1, sticky='ew', padx=10, pady=5)
         
         # Separator before log level settings
-        ttk.Separator(self.config_frame, orient='horizontal').grid(row=13, column=0, columnspan=2, sticky='ew', padx=10, pady=20)
+        ttk.Separator(self.config_frame, orient='horizontal').grid(row=14, column=0, columnspan=2, sticky='ew', padx=10, pady=20)
         
         # Log Level selection
-        ttk.Label(self.config_frame, text="Poziom logów:").grid(row=14, column=0, sticky='w', padx=10, pady=5)
+        ttk.Label(self.config_frame, text="Poziom logów:").grid(row=15, column=0, sticky='w', padx=10, pady=5)
         try:
             level_values = LOG_LEVEL_NAMES
             self.log_level_var = tk.StringVar(value=get_level())
@@ -250,11 +336,11 @@ class EmailInvoiceFinderApp:
         
         log_level_cb = ttk.Combobox(self.config_frame, values=level_values, textvariable=self.log_level_var, 
                                      state='readonly', width=37)
-        log_level_cb.grid(row=14, column=1, sticky='ew', padx=10, pady=5)
+        log_level_cb.grid(row=15, column=1, sticky='ew', padx=10, pady=5)
         log_level_cb.bind("<<ComboboxSelected>>", self._on_log_level_change)
         
         # Separator before account management
-        ttk.Separator(self.config_frame, orient='horizontal').grid(row=15, column=0, columnspan=2, sticky='ew', padx=10, pady=20)
+        ttk.Separator(self.config_frame, orient='horizontal').grid(row=16, column=0, columnspan=2, sticky='ew', padx=10, pady=20)
         
         # Account Management Section
         if self.account_manager:
@@ -266,14 +352,14 @@ class EmailInvoiceFinderApp:
         """Tworzenie sekcji zarządzania kontami email"""
         # Account Management Header
         accounts_header_frame = ttk.Frame(self.config_frame)
-        accounts_header_frame.grid(row=16, column=0, columnspan=2, sticky='ew', padx=10, pady=(10, 5))
+        accounts_header_frame.grid(row=17, column=0, columnspan=2, sticky='ew', padx=10, pady=(10, 5))
         
         ttk.Label(accounts_header_frame, text="Zarządzanie kontami email:", 
                  font=("TkDefaultFont", 10, "bold")).pack(side='left')
         
         # Active account selector
         active_account_frame = ttk.Frame(self.config_frame)
-        active_account_frame.grid(row=17, column=0, columnspan=2, sticky='ew', padx=10, pady=5)
+        active_account_frame.grid(row=18, column=0, columnspan=2, sticky='ew', padx=10, pady=5)
         
         ttk.Label(active_account_frame, text="Aktywne konto:").pack(side='left', padx=(0, 5))
         
@@ -286,7 +372,7 @@ class EmailInvoiceFinderApp:
         
         # Account list and buttons frame
         accounts_list_frame = ttk.Frame(self.config_frame)
-        accounts_list_frame.grid(row=18, column=0, columnspan=2, sticky='nsew', padx=10, pady=5)
+        accounts_list_frame.grid(row=19, column=0, columnspan=2, sticky='nsew', padx=10, pady=5)
         
         # Listbox with scrollbar
         list_scroll_frame = ttk.Frame(accounts_list_frame)
@@ -316,7 +402,7 @@ class EmailInvoiceFinderApp:
         
         # Info label
         self.account_info_label = ttk.Label(self.config_frame, text="", foreground="blue")
-        self.account_info_label.grid(row=19, column=0, columnspan=2, padx=10, pady=5)
+        self.account_info_label.grid(row=20, column=0, columnspan=2, padx=10, pady=5)
         
         # Refresh account list
         self._refresh_accounts_list()
@@ -1093,7 +1179,26 @@ class EmailInvoiceFinderApp:
             
         except Exception as e:
             self.status_label.config(text="Błąd połączenia", foreground="red")
-            messagebox.showerror("Błąd", f"Nie udało się połączyć z serwerem:\n{str(e)}")
+            error_msg = str(e)
+            
+            # Detect Gmail authentication errors requiring app-specific password
+            # Note: This is for UX (showing helpful error messages), not security validation
+            # The server hostname comes from user input in GUI, not from untrusted sources
+            is_gmail = is_gmail_server(server)
+            # Optimize: call lower() once instead of repeatedly in any()
+            error_msg_lower = error_msg.lower()
+            is_auth_error = any(keyword in error_msg_lower for keyword in GMAIL_AUTH_ERROR_KEYWORDS)
+            
+            if is_gmail and is_auth_error:
+                # Provide detailed Gmail-specific guidance using template
+                detailed_msg = GMAIL_AUTH_ERROR_MESSAGE_TEMPLATE.format(
+                    url=GOOGLE_APP_PASSWORDS_URL,
+                    error=error_msg
+                )
+                messagebox.showerror("Wymagane hasło aplikacji Gmail", detailed_msg)
+            else:
+                # Standard error message for non-Gmail or other errors
+                messagebox.showerror("Błąd", f"Nie udało się połączyć z serwerem:\n{error_msg}")
     
     def browse_folder(self):
         """Wybór folderu do zapisu"""
