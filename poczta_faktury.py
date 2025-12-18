@@ -666,12 +666,9 @@ class EmailInvoiceFinderApp:
         version_str = None
         try:
             # Spróbuj użyć modułu version_info (jeśli dodany do repo)
-            try:
-                from version_info import get_version_string
-                version_str = get_version_string()
-            except Exception:
-                version_str = None
-        except Exception:
+            from version_info import get_version_string
+            version_str = get_version_string()
+        except (ImportError, AttributeError):
             version_str = None
 
         if not version_str:

@@ -13,18 +13,19 @@ from typing import Optional
 def _safe_check_output(cmd, timeout=3):
     try:
         return subprocess.check_output(cmd, stderr=subprocess.DEVNULL, text=True, timeout=timeout).strip()
-    except Exception:
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError, OSError):
         return ""
 
 def get_pr_number_from_git_log() -> Optional[str]:
     """Try to extract PR number from merge commit message in git log."""
     try:
-        git_log = _safe_check_output(['git', 'log', '--all', '--grep=Merge pull request #', '--pretty=format:%s', '-1'])
+        git_log = _safe_check_output(['git', 'log', '--first-parent', '-n', '10', '--grep=Merge pull request #', '--pretty=format:%s'])
         if git_log:
+            # Take the first match (most recent)
             m = re.search(r'Merge pull request #(\d+)', git_log)
             if m:
                 return m.group(1)
-    except Exception:
+    except (AttributeError, ValueError):
         pass
     return None
 
@@ -59,7 +60,7 @@ def get_pr_number() -> Optional[str]:
 
         # fallback to git log merge
         return get_pr_number_from_git_log()
-    except Exception:
+    except (AttributeError, ValueError, KeyError):
         return None
 
 def get_version_string() -> str:
