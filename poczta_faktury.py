@@ -1327,14 +1327,16 @@ class EmailInvoiceFinderApp:
             dest_folder: The base destination folder (may be output_folder or output_folder/MM.YYYY)
         
         Returns:
-            Path to Poczta subfolder
+            Path to Poczta subfolder, or dest_folder if creation fails
         """
         poczta_folder = os.path.join(dest_folder, "Poczta")
         try:
             os.makedirs(poczta_folder, exist_ok=True)
+            return poczta_folder
         except Exception as e:
             self.safe_log(f"Ostrzeżenie: nie można utworzyć folderu Poczta: {e}")
-        return poczta_folder
+            # Fallback to dest_folder if Poczta subfolder creation fails
+            return dest_folder
     
     def _save_attachment_with_timestamp(self, attachment_data, output_path, email_message):
         """Save attachment and set its timestamp from email date"""
