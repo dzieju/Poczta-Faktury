@@ -172,7 +172,7 @@ class MailConfigFrame(ttk.Frame):
 
         # Proste sprawdzenie pól
         if not login or not password or not email:
-            messagebox.showwarning("Brak danych", "Uzupełnij pola Login, Hasło i Adres e-mail przed testem.")
+            messagebox.showwarning("Brak danych", "Uzupełnij pola Login, Hasło i Adres e-mail przed testem.", parent=self.winfo_toplevel())
             return
 
         # TODO: WSTAW TUTAJ RZECZYWISTY TEST POŁĄCZENIA:
@@ -187,11 +187,11 @@ class MailConfigFrame(ttk.Frame):
             success = True
             msg = "Połączenie wykonane pomyślnie (symulacja)."
             if success:
-                messagebox.showinfo("Test połączenia", msg)
+                messagebox.showinfo("Test połączenia", msg, parent=self.winfo_toplevel())
             else:
-                messagebox.showerror("Test połączenia", msg or "Błąd połączenia")
+                messagebox.showerror("Test połączenia", msg or "Błąd połączenia", parent=self.winfo_toplevel())
         except Exception as e:
-            messagebox.showerror("Test połączenia", f"Błąd podczas testu połączenia:\n{e}")
+            messagebox.showerror("Test połączenia", f"Błąd podczas testu połączenia:\n{e}", parent=self.winfo_toplevel())
 
     def save_settings(self):
         # Zapisz ustawienia do pliku ini (można podmienić na istniejący mechanizm zapisu)
@@ -209,9 +209,9 @@ class MailConfigFrame(ttk.Frame):
         try:
             with open(CONFIG_FILE, "w", encoding="utf-8") as f:
                 cfg.write(f)
-            messagebox.showinfo("Zapis", "Ustawienia zostały zapisane.")
+            messagebox.showinfo("Zapis", "Ustawienia zostały zapisane.", parent=self.winfo_toplevel())
         except Exception as e:
-            messagebox.showerror("Zapis", f"Nie udało się zapisać ustawień:\n{e}")
+            messagebox.showerror("Zapis", f"Nie udało się zapisać ustawień:\n{e}", parent=self.winfo_toplevel())
 
     def on_done(self):
         # Domyślna akcja przy Gotowy - zamknij okno lub schowaj ramkę.

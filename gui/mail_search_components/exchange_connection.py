@@ -46,8 +46,9 @@ CONFIG_FILE = Path.home() / '.poczta_faktury_config.json'
 class ExchangeConnection:
     """Manages Exchange server connection and authentication"""
     
-    def __init__(self):
+    def __init__(self, parent=None):
         self.account = None
+        self.parent = parent  # Optional parent window for messageboxes
     
     def load_exchange_config(self):
         """Load Exchange configuration from config file"""
@@ -56,16 +57,16 @@ class ExchangeConnection:
                 config = json.load(f)
                 return config
         except FileNotFoundError:
-            messagebox.showerror("Błąd konfiguracji", "Brak konfiguracji poczty. Skonfiguruj połączenie w zakładce 'Ustawienia'.")
+            messagebox.showerror("Błąd konfiguracji", "Brak konfiguracji poczty. Skonfiguruj połączenie w zakładce 'Ustawienia'.", parent=self.parent)
             return None
         except Exception as e:
-            messagebox.showerror("Błąd konfiguracji", f"Błąd odczytu konfiguracji: {str(e)}")
+            messagebox.showerror("Błąd konfiguracji", f"Błąd odczytu konfiguracji: {str(e)}", parent=self.parent)
             return None
     
     def get_account(self):
         """Get Exchange account connection"""
         if not HAVE_EXCHANGELIB:
-            messagebox.showerror("Błąd", "Biblioteka exchangelib nie jest zainstalowana")
+            messagebox.showerror("Błąd", "Biblioteka exchangelib nie jest zainstalowana", parent=self.parent)
             return None
             
         config = self.load_exchange_config()
@@ -82,7 +83,7 @@ class ExchangeConnection:
             email = config.get("email", "")
             
             if not server or not email:
-                messagebox.showerror("Błąd konfiguracji", "Brak danych serwera lub email w konfiguracji")
+                messagebox.showerror("Błąd konfiguracji", "Brak danych serwera lub email w konfiguracji", parent=self.parent)
                 return None
             
             account_config = Configuration(
@@ -98,7 +99,7 @@ class ExchangeConnection:
             self.account = account
             return account
         except Exception as e:
-            messagebox.showerror("Błąd połączenia", f"Nie można połączyć z serwerem poczty: {str(e)}")
+            messagebox.showerror("Błąd połączenia", f"Nie można połączyć z serwerem poczty: {str(e)}", parent=self.parent)
             return None
     
     def get_folder_by_path(self, account, folder_path):
@@ -125,12 +126,12 @@ class ExchangeConnection:
                         break
                 
                 if not found:
-                    messagebox.showwarning("Błąd folderu", f"Nie znaleziono folderu: {part}")
+                    messagebox.showwarning("Błąd folderu", f"Nie znaleziono folderu: {part}", parent=self.parent)
                     return account.inbox
                     
             return current_folder
         except Exception as e:
-            messagebox.showerror("Błąd folderu", f"Błąd dostępu do folderu: {str(e)}")
+            messagebox.showerror("Błąd folderu", f"Błąd dostępu do folderu: {str(e)}", parent=self.parent)
             return account.inbox
     
     def get_folder_with_subfolders(self, account, folder_path, excluded_folders=None):
