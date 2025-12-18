@@ -203,8 +203,8 @@ class EmailInvoiceFinderApp:
         self._update_window_title()
         
         # Enable window resizing for better element display
-        self.root.geometry("800x600")
-        self.root.minsize(600, 400)  # Set minimum size to prevent too small window
+        self.root.geometry("1000x750")
+        self.root.minsize(900, 600)  # Set minimum size to prevent too small window
         self.root.resizable(True, True)  # Enable resizing in both directions
         
         # Initialize EmailAccountManager
