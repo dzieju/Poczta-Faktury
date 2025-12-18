@@ -68,8 +68,10 @@ GOOGLE_APP_PASSWORDS_URL_DISPLAY = 'myaccount.google.com/apppasswords'
 # Gmail-specific authentication error keywords (highly specific to Gmail)
 GMAIL_SPECIFIC_ERROR_KEYWORDS = [
     'application-specific password',
-    'app-specific password', 
+    'app-specific password',
+    'app-specific password required',
     'app password',
+    'please use an app password',
 ]
 
 # Generic authentication error keywords (could occur with Gmail or other providers)
@@ -81,6 +83,25 @@ GMAIL_GENERIC_ERROR_KEYWORDS = [
 
 # Combined list for checking
 GMAIL_AUTH_ERROR_KEYWORDS = GMAIL_SPECIFIC_ERROR_KEYWORDS + GMAIL_GENERIC_ERROR_KEYWORDS
+
+# Gmail authentication error message template
+GMAIL_AUTH_ERROR_MESSAGE_TEMPLATE = """❌ BŁĄD UWIERZYTELNIANIA GMAIL
+
+Gmail wymaga użycia HASŁA APLIKACJI zamiast zwykłego hasła konta.
+
+📋 Jak wygenerować hasło aplikacji:
+
+1. Przejdź do: {url}
+2. Zaloguj się do swojego konta Google
+3. Upewnij się, że weryfikacja dwuetapowa jest włączona
+4. Wybierz: Aplikacja = 'Poczta', Urządzenie = 'Komputer'
+5. Kliknij 'Generuj'
+6. Skopiuj 16-znakowe hasło (bez spacji)
+7. Użyj tego hasła w polu 'Hasło' w tej aplikacji
+
+📖 Szczegółowa instrukcja: Zobacz plik USAGE.md lub README.md
+
+Oryginalny błąd: {error}"""
 
 
 def is_gmail_server(server):
@@ -1164,23 +1185,15 @@ class EmailInvoiceFinderApp:
             # Note: This is for UX (showing helpful error messages), not security validation
             # The server hostname comes from user input in GUI, not from untrusted sources
             is_gmail = is_gmail_server(server)
-            is_auth_error = any(keyword in error_msg.lower() for keyword in GMAIL_AUTH_ERROR_KEYWORDS)
+            # Optimize: call lower() once instead of repeatedly in any()
+            error_msg_lower = error_msg.lower()
+            is_auth_error = any(keyword in error_msg_lower for keyword in GMAIL_AUTH_ERROR_KEYWORDS)
             
             if is_gmail and is_auth_error:
-                # Provide detailed Gmail-specific guidance
-                detailed_msg = (
-                    "❌ BŁĄD UWIERZYTELNIANIA GMAIL\n\n"
-                    "Gmail wymaga użycia HASŁA APLIKACJI zamiast zwykłego hasła konta.\n\n"
-                    "📋 Jak wygenerować hasło aplikacji:\n\n"
-                    f"1. Przejdź do: {GOOGLE_APP_PASSWORDS_URL}\n"
-                    "2. Zaloguj się do swojego konta Google\n"
-                    "3. Upewnij się, że weryfikacja dwuetapowa jest włączona\n"
-                    "4. Wybierz: Aplikacja = 'Poczta', Urządzenie = 'Komputer'\n"
-                    "5. Kliknij 'Generuj'\n"
-                    "6. Skopiuj 16-znakowe hasło (bez spacji)\n"
-                    "7. Użyj tego hasła w polu 'Hasło' w tej aplikacji\n\n"
-                    "📖 Szczegółowa instrukcja: Zobacz plik USAGE.md lub README.md\n\n"
-                    f"Oryginalny błąd: {error_msg}"
+                # Provide detailed Gmail-specific guidance using template
+                detailed_msg = GMAIL_AUTH_ERROR_MESSAGE_TEMPLATE.format(
+                    url=GOOGLE_APP_PASSWORDS_URL,
+                    error=error_msg
                 )
                 messagebox.showerror("Wymagane hasło aplikacji Gmail", detailed_msg)
             else:
