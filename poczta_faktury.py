@@ -61,6 +61,17 @@ CONFIG_FILE = Path.home() / '.poczta_faktury_config.json'
 # Plik z wersją aplikacji
 VERSION_FILE = Path(__file__).parent / 'version.txt'
 
+# Gmail authentication constants
+GOOGLE_APP_PASSWORDS_URL = 'https://myaccount.google.com/apppasswords'
+GMAIL_AUTH_ERROR_KEYWORDS = [
+    'application-specific password',
+    'app-specific password', 
+    'app password',
+    'username and password not accepted',
+    '[auth]',
+    'invalid credentials'
+]
+
 
 class EmailInvoiceFinderApp:
     """Główna aplikacja do wyszukiwania faktur"""
@@ -193,7 +204,7 @@ class EmailInvoiceFinderApp:
         
         gmail_info_label = ttk.Label(
             gmail_info_frame, 
-            text="Gmail: Użyj hasła aplikacji zamiast zwykłego hasła (myaccount.google.com/apppasswords)",
+            text=f"Gmail: Użyj hasła aplikacji zamiast zwykłego hasła ({GOOGLE_APP_PASSWORDS_URL.replace('https://', '')})",
             font=("TkDefaultFont", 8),
             foreground="#0066cc"
         )
@@ -1112,14 +1123,7 @@ class EmailInvoiceFinderApp:
             
             # Detect Gmail authentication errors requiring app-specific password
             is_gmail = 'gmail.com' in server.lower()
-            is_auth_error = any(keyword in error_msg.lower() for keyword in [
-                'application-specific password',
-                'app-specific password', 
-                'app password',
-                'username and password not accepted',
-                '[auth]',
-                'invalid credentials'
-            ])
+            is_auth_error = any(keyword in error_msg.lower() for keyword in GMAIL_AUTH_ERROR_KEYWORDS)
             
             if is_gmail and is_auth_error:
                 # Provide detailed Gmail-specific guidance
@@ -1127,7 +1131,7 @@ class EmailInvoiceFinderApp:
                     "❌ BŁĄD UWIERZYTELNIANIA GMAIL\n\n"
                     "Gmail wymaga użycia HASŁA APLIKACJI zamiast zwykłego hasła konta.\n\n"
                     "📋 Jak wygenerować hasło aplikacji:\n\n"
-                    "1. Przejdź do: https://myaccount.google.com/apppasswords\n"
+                    f"1. Przejdź do: {GOOGLE_APP_PASSWORDS_URL}\n"
                     "2. Zaloguj się do swojego konta Google\n"
                     "3. Upewnij się, że weryfikacja dwuetapowa jest włączona\n"
                     "4. Wybierz: Aplikacja = 'Poczta', Urządzenie = 'Komputer'\n"
