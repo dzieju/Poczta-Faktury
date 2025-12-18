@@ -76,11 +76,32 @@ python main.py
 ## Przykładowe konfiguracje serwerów
 
 ### Gmail
-- Protokół: IMAP
-- Serwer: imap.gmail.com
-- Port: 993
+- Protokół: IMAP lub POP3
+- Serwer: 
+  - IMAP: imap.gmail.com
+  - POP3: pop.gmail.com
+- Port: 
+  - IMAP: 993
+  - POP3: 995
 - SSL: TAK
-- Uwaga: Może wymagać hasła aplikacji zamiast zwykłego hasła
+
+**WAŻNE - Hasło aplikacji (App Password):**
+
+Gmail wymaga użycia **hasła aplikacji** zamiast zwykłego hasła konta, jeśli masz włączoną weryfikację dwuetapową (2FA). Bez hasła aplikacji zobaczysz błąd: `[AUTH] Application-specific password required`.
+
+**Jak wygenerować hasło aplikacji:**
+
+1. Zaloguj się do konta Google: https://myaccount.google.com/
+2. Przejdź do sekcji **Bezpieczeństwo**
+3. Upewnij się, że **Weryfikacja dwuetapowa** jest włączona (jeśli nie, włącz ją najpierw)
+4. Przewiń do sekcji **Hasła aplikacji** (może wymagać ponownego logowania)
+5. Kliknij **Hasła aplikacji** lub przejdź bezpośrednio: https://myaccount.google.com/apppasswords
+6. Wybierz aplikację: **Poczta** i urządzenie: **Komputer z systemem Windows** (lub inne odpowiednie)
+7. Kliknij **Generuj**
+8. Skopiuj wygenerowane 16-znakowe hasło (bez spacji)
+9. Użyj tego hasła w aplikacji Poczta-Faktury zamiast swojego zwykłego hasła Gmail
+
+**Uwaga:** Po wygenerowaniu hasło aplikacji pojawi się tylko raz. Zapisz je w bezpiecznym miejscu lub wygeneruj nowe, jeśli je zgubisz.
 
 ### Outlook/Hotmail
 - Protokół: IMAP
