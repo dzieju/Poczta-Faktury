@@ -314,14 +314,30 @@ class ZnalezioneWindow:
             pdf_files.sort()
             
             # Create mapping of EML files (assuming naming pattern: N_email.eml for N_*.pdf)
+            # First check in Poczta subfolder, then fall back to main folder (backwards compatibility)
             eml_files = {}
+            poczta_folder = os.path.join(folder_path, "Poczta")
+            
+            # Check Poczta subfolder first (new location)
+            if os.path.exists(poczta_folder) and os.path.isdir(poczta_folder):
+                for f in os.listdir(poczta_folder):
+                    if f.lower().endswith('.eml'):
+                        # Extract the number prefix (e.g., "1" from "1_email.eml")
+                        parts = f.split('_')
+                        if parts:
+                            num = parts[0]
+                            eml_files[num] = os.path.join(poczta_folder, f)
+            
+            # Fall back to main folder for backwards compatibility (old location)
             for f in os.listdir(folder_path):
                 if f.lower().endswith('.eml'):
                     # Extract the number prefix (e.g., "1" from "1_email.eml")
                     parts = f.split('_')
                     if parts:
                         num = parts[0]
-                        eml_files[num] = os.path.join(folder_path, f)
+                        # Only add if not already found in Poczta subfolder
+                        if num not in eml_files:
+                            eml_files[num] = os.path.join(folder_path, f)
             
             for fname in pdf_files:
                 full = os.path.join(folder_path, fname)

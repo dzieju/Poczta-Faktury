@@ -1318,6 +1318,24 @@ class EmailInvoiceFinderApp:
             dest = base_output_folder
         return dest
     
+    def _ensure_poczta_subfolder(self, dest_folder):
+        """
+        Create and return path to 'Poczta' subfolder within dest_folder.
+        This folder is used to store .eml files.
+        
+        Args:
+            dest_folder: The base destination folder (may be output_folder or output_folder/MM.YYYY)
+        
+        Returns:
+            Path to Poczta subfolder
+        """
+        poczta_folder = os.path.join(dest_folder, "Poczta")
+        try:
+            os.makedirs(poczta_folder, exist_ok=True)
+        except Exception as e:
+            self.safe_log(f"Ostrzeżenie: nie można utworzyć folderu Poczta: {e}")
+        return poczta_folder
+    
     def _save_attachment_with_timestamp(self, attachment_data, output_path, email_message):
         """Save attachment and set its timestamp from email date"""
         with open(output_path, 'wb') as f:
@@ -1440,7 +1458,7 @@ class EmailInvoiceFinderApp:
         
         mail.login(self.email_config['email'], self.email_config['password'])
         
-        self.safe_log("Połączono z serwerem IMAP")
+        self.safe_log(f"Połączono z serwerem IMAP (adres: {self.email_config['email']})")
         
         # Select INBOX
         mail.select('INBOX')
@@ -1546,9 +1564,10 @@ class EmailInvoiceFinderApp:
                                     email_message
                                 )
                                 
-                                # Also save the complete email as .eml file
+                                # Also save the complete email as .eml file in Poczta subfolder
+                                poczta_folder = self._ensure_poczta_subfolder(dest_folder)
                                 eml_filename = f"{found_count}_email.eml"
-                                eml_path = os.path.join(dest_folder, eml_filename)
+                                eml_path = os.path.join(poczta_folder, eml_filename)
                                 try:
                                     with open(eml_path, 'wb') as eml_file:
                                         eml_file.write(email_body)
@@ -1598,7 +1617,7 @@ class EmailInvoiceFinderApp:
         mail.user(self.email_config['email'])
         mail.pass_(self.email_config['password'])
         
-        self.safe_log("Połączono z serwerem POP3")
+        self.safe_log(f"Połączono z serwerem POP3 (adres: {self.email_config['email']})")
         
         # Get message list
         num_messages = len(mail.list()[1])
@@ -1672,9 +1691,10 @@ class EmailInvoiceFinderApp:
                                     email_message
                                 )
                                 
-                                # Also save the complete email as .eml file
+                                # Also save the complete email as .eml file in Poczta subfolder
+                                poczta_folder = self._ensure_poczta_subfolder(dest_folder)
                                 eml_filename = f"{found_count}_email.eml"
-                                eml_path = os.path.join(dest_folder, eml_filename)
+                                eml_path = os.path.join(poczta_folder, eml_filename)
                                 try:
                                     with open(eml_path, 'wb') as eml_file:
                                         eml_file.write(email_body)

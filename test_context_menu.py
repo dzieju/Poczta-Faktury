@@ -87,22 +87,34 @@ def test_pdf_eml_pairing():
         for pdf in test_files['pdfs']:
             Path(os.path.join(tmpdir, pdf)).write_bytes(b'%PDF-1.4')
         
-        # Create EML files
+        # Create EML files in Poczta subfolder (new behavior)
+        poczta_folder = os.path.join(tmpdir, "Poczta")
+        os.makedirs(poczta_folder, exist_ok=True)
         for eml in test_files['emls']:
             msg = MIMEText("Test email content")
             msg['Subject'] = 'Test Subject'
             msg['From'] = 'test@example.com'
             msg['To'] = 'recipient@example.com'
-            Path(os.path.join(tmpdir, eml)).write_bytes(msg.as_bytes())
+            Path(os.path.join(poczta_folder, eml)).write_bytes(msg.as_bytes())
         
-        # Test pairing logic
+        # Test pairing logic (check Poczta subfolder first, then main folder)
         eml_map = {}
+        if os.path.exists(poczta_folder) and os.path.isdir(poczta_folder):
+            for f in os.listdir(poczta_folder):
+                if f.lower().endswith('.eml'):
+                    parts = f.split('_')
+                    if parts:
+                        num = parts[0]
+                        eml_map[num] = os.path.join(poczta_folder, f)
+        
+        # Fall back to main folder for backwards compatibility
         for f in os.listdir(tmpdir):
             if f.lower().endswith('.eml'):
                 parts = f.split('_')
                 if parts:
                     num = parts[0]
-                    eml_map[num] = os.path.join(tmpdir, f)
+                    if num not in eml_map:
+                        eml_map[num] = os.path.join(tmpdir, f)
         
         # Verify each PDF has a matching EML
         all_paired = True
