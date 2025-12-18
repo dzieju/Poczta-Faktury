@@ -662,8 +662,23 @@ class EmailInvoiceFinderApp:
         return "1.0.0"
     
     def _update_window_title(self):
-        """Aktualizacja tytułu okna z numerem wersji"""
-        self.root.title(f"Poczta Faktury - Wyszukiwanie faktur po NIP  ver. {self.version}")
+        """Aktualizacja tytułu okna z numerem wersji (z wersją i numerem PR jeśli dostępny)."""
+        version_str = None
+        try:
+            # Spróbuj użyć modułu version_info (jeśli dodany do repo)
+            try:
+                from version_info import get_version_string
+                version_str = get_version_string()
+            except Exception:
+                version_str = None
+        except Exception:
+            version_str = None
+
+        if not version_str:
+            # Fallback - użyj istniejącej self.version
+            version_str = f"ver. {self.version}"
+
+        self.root.title(f"Poczta Faktury - Wyszukiwanie faktur po NIP  {version_str}")
     
     def _watch_version_file(self):
         """Monitorowanie zmian w pliku version.txt i aktualizacja tytułu"""
