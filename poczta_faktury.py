@@ -1122,7 +1122,11 @@ class EmailInvoiceFinderApp:
             error_msg = str(e)
             
             # Detect Gmail authentication errors requiring app-specific password
-            is_gmail = 'gmail.com' in server.lower()
+            # Note: This is for UX (showing helpful error messages), not security validation
+            # The server hostname comes from user input in GUI, not from untrusted sources
+            # We check if server is exactly gmail.com or ends with .gmail.com (subdomain)
+            server_lower = server.lower()
+            is_gmail = server_lower == 'gmail.com' or server_lower.endswith('.gmail.com')
             is_auth_error = any(keyword in error_msg.lower() for keyword in GMAIL_AUTH_ERROR_KEYWORDS)
             
             if is_gmail and is_auth_error:
